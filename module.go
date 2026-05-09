@@ -16,6 +16,7 @@ import (
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/core/services"
 	"github.com/ranakdinesh/spur-messaging/worker"
+	"github.com/rs/zerolog"
 )
 
 // Config holds messaging-specific configuration.
@@ -52,10 +53,31 @@ type Logger interface {
 	Error(msg string, args ...any)
 }
 
+// zerologAdapter wraps *zerolog.Logger to satisfy the internal Logger interface.
+// This keeps the simple log.Info("msg", "key", val) API inside services/handlers
+// while accepting zerolog from the platform.
+type zerologAdapter struct {
+	zl *zerolog.Logger
+}
+
+func (z *zerologAdapter) Debug(msg string, args ...any) { z.event(z.zl.Debug(), msg, args...) }
+func (z *zerologAdapter) Info(msg string, args ...any)  { z.event(z.zl.Info(), msg, args...) }
+func (z *zerologAdapter) Warn(msg string, args ...any)  { z.event(z.zl.Warn(), msg, args...) }
+func (z *zerologAdapter) Error(msg string, args ...any) { z.event(z.zl.Error(), msg, args...) }
+
+func (z *zerologAdapter) event(e *zerolog.Event, msg string, args ...any) {
+	for i := 0; i+1 < len(args); i += 2 {
+		if key, ok := args[i].(string); ok {
+			e = e.Interface(key, args[i+1])
+		}
+	}
+	e.Msg(msg)
+}
+
 // Options is passed by app.go when wiring the module
 type Options struct {
 	DB  *pgxpool.Pool
-	Log Logger
+	Log *zerolog.Logger
 	Cfg Config
 }
 
@@ -94,7 +116,8 @@ type Module struct {
 // New creates and wires the messaging module.
 func New(ctx context.Context, opt Options) (*Module, error) {
 	// 1. Run migrations
-	opt.Log.Info("Running messaging module migrations...")
+	log := &zerologAdapter{zl: opt.Log}
+	log.Info("Running messaging module migrations...")
 
 	// 2. Create repository implementations
 	store := postgres.NewStore(opt.DB)
@@ -136,7 +159,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
 	emailAnalyticsSvc := services.NewEmailAnalyticsService(emailEventRepo)
 	emailSenderSvc := services.NewEmailSender(messageSvc)
-	webhookSvc := services.NewWebhookService(msgRepo, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, opt.Log)
+	webhookSvc := services.NewWebhookService(msgRepo, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, log)
 
 	// 7. Create handlers
 	m := &Module{
@@ -153,7 +176,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 		},
 		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
 			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
-		}, opt.Log),
+		}, log),
 	}
 
 	m.handlers.message = http.NewMessageHandler(messageSvc)
@@ -177,7 +200,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	sender := worker.NewSender(msgQueue, msgRepo, campaignRepo, providerConfigRepo, providerRegistry)
 	go func() {
 		if err := sender.Start(ctx); err != nil {
-			opt.Log.Error("Sender worker stopped with error", "error", err)
+			log.Error("Sender worker stopped with error", "error", err)
 		}
 	}()
 
