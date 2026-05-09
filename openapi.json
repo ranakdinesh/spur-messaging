@@ -1,0 +1,1517 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Spur Messaging API",
+    "description": "Multi-channel messaging platform (WhatsApp, SMS, Email) with template management, campaign execution, and analytics.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/messaging",
+      "description": "Main API prefix"
+    }
+  ],
+  "tags": [
+    { "name": "providers", "description": "Channel provider configurations" },
+    { "name": "templates", "description": "WhatsApp and generic message templates" },
+    { "name": "email-templates", "description": "HTML email templates" },
+    { "name": "messages", "description": "Individual message sending and history" },
+    { "name": "contacts", "description": "Contact management and consent" },
+    { "name": "segments", "description": "Dynamic and static contact segments" },
+    { "name": "campaigns", "description": "Bulk messaging campaigns" },
+    { "name": "unsubscribes", "description": "Email unsubscribe management" },
+    { "name": "suppressions", "description": "Email suppression list" },
+    { "name": "analytics", "description": "Messaging and email analytics" },
+    { "name": "webhooks", "description": "Provider webhook endpoints" }
+  ],
+  "paths": {
+    "/providers": {
+      "get": {
+        "tags": ["providers"],
+        "summary": "List provider configurations",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIResponseProviderConfigs" },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "ID": "550e8400-e29b-41d4-a716-446655440000",
+                      "Channel": "whatsapp",
+                      "Provider": "meta_cloud",
+                      "IsActive": true,
+                      "CreatedAt": "2024-05-08T22:49:00Z"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["providers"],
+        "summary": "Create provider configuration",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProviderConfig" },
+              "example": {
+                "Channel": "whatsapp",
+                "Provider": "meta_cloud",
+                "Credentials": "...",
+                "WABAID": "123456789",
+                "PhoneNumberID": "987654321"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIResponseProviderConfig" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/providers/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["providers"],
+        "summary": "Get provider configuration",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseProviderConfig" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["providers"],
+        "summary": "Update provider configuration",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderConfig" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseProviderConfig" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["providers"],
+        "summary": "Delete provider configuration",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/providers/{id}/test": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["providers"],
+        "summary": "Send a test message via provider",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/templates": {
+      "get": {
+        "tags": ["templates"],
+        "summary": "List templates",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplates" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["templates"],
+        "summary": "Create template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTemplateRequest" },
+              "example": {
+                "Channel": "whatsapp",
+                "Name": "welcome_message",
+                "Language": "en_US",
+                "Category": "MARKETING",
+                "Components": [
+                  { "type": "BODY", "text": "Welcome to Spur!" }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplate" } } }
+          }
+        }
+      }
+    },
+    "/templates/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["templates"],
+        "summary": "Get template",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplate" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["templates"],
+        "summary": "Update template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateTemplateRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplate" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["templates"],
+        "summary": "Delete template",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/templates/{id}/submit": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["templates"],
+        "summary": "Submit template for approval",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Submitted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplate" } } }
+          }
+        }
+      }
+    },
+    "/templates/{id}/sync": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["templates"],
+        "summary": "Sync template status with provider",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Synced",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseTemplate" } } }
+          }
+        }
+      }
+    },
+    "/send": {
+      "post": {
+        "tags": ["messages"],
+        "summary": "Send individual message",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendMessageRequest" },
+              "example": {
+                "Channel": "whatsapp",
+                "Recipient": "+919876543210",
+                "MessageType": "template",
+                "TemplateName": "order_confirmation",
+                "TemplateParams": { "1": "Rahul" }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseMessage" } } }
+          }
+        }
+      }
+    },
+    "/send-bulk": {
+      "post": {
+        "tags": ["messages"],
+        "summary": "Send bulk messages",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "$ref": "#/components/schemas/SendMessageRequest" } }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/APIResponseMessage" } } } }
+          }
+        }
+      }
+    },
+    "/messages": {
+      "get": {
+        "tags": ["messages"],
+        "summary": "List messages",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "recipient", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseMessages" } } }
+          }
+        }
+      }
+    },
+    "/messages/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["messages"],
+        "summary": "Get message history and status",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseMessage" } } }
+          }
+        }
+      }
+    },
+    "/contacts": {
+      "get": {
+        "tags": ["contacts"],
+        "summary": "List contacts",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "phone", "in": "query", "schema": { "type": "string" } },
+          { "name": "email", "in": "query", "schema": { "type": "string" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseContacts" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["contacts"],
+        "summary": "Create contact",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateContactRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseContact" } } }
+          }
+        }
+      }
+    },
+    "/contacts/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["contacts"],
+        "summary": "Get contact",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseContact" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["contacts"],
+        "summary": "Update contact",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateContactRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseContact" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["contacts"],
+        "summary": "Delete contact",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/contacts/import": {
+      "post": {
+        "tags": ["contacts"],
+        "summary": "Bulk import contacts",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CreateContactRequest" } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Imported",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/contacts/{id}/opt-in": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["contacts"],
+        "summary": "Opt-in to a channel",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "channel": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/contacts/{id}/opt-out": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["contacts"],
+        "summary": "Opt-out from a channel",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "channel": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/segments": {
+      "get": {
+        "tags": ["segments"],
+        "summary": "List segments",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseSegments" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["segments"],
+        "summary": "Create segment",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Segment" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseSegment" } } }
+          }
+        }
+      }
+    },
+    "/segments/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["segments"],
+        "summary": "Get segment",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseSegment" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["segments"],
+        "summary": "Update segment",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Segment" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseSegment" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["segments"],
+        "summary": "Delete segment",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/segments/{id}/contacts": {
+      "parameters": [
+        { "$ref": "#/components/parameters/idPath" },
+        { "$ref": "#/components/parameters/pageQuery" },
+        { "$ref": "#/components/parameters/perPageQuery" }
+      ],
+      "get": {
+        "tags": ["segments"],
+        "summary": "Resolve segment contacts",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseContacts" } } }
+          }
+        }
+      }
+    },
+    "/campaigns": {
+      "get": {
+        "tags": ["campaigns"],
+        "summary": "List campaigns",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseCampaigns" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["campaigns"],
+        "summary": "Create campaign",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateCampaignRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseCampaign" } } }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["campaigns"],
+        "summary": "Get campaign",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseCampaign" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["campaigns"],
+        "summary": "Update campaign",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCampaignRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseCampaign" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["campaigns"],
+        "summary": "Delete campaign",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/execute": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["campaigns"],
+        "summary": "Start campaign execution",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/pause": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["campaigns"],
+        "summary": "Pause campaign",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/resume": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["campaigns"],
+        "summary": "Resume campaign",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/stats": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["campaigns"],
+        "summary": "Get campaign stats",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseCampaignStats" } } }
+          }
+        }
+      }
+    },
+    "/analytics/messages": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get message analytics",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/analytics/overview": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get dashboard overview",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/email-templates": {
+      "get": {
+        "tags": ["email-templates"],
+        "summary": "List email templates",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "category", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailTemplates" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["email-templates"],
+        "summary": "Create email template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateEmailTemplateRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailTemplate" } } }
+          }
+        }
+      }
+    },
+    "/email-templates/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["email-templates"],
+        "summary": "Get email template",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailTemplate" } } }
+          }
+        }
+      },
+      "put": {
+        "tags": ["email-templates"],
+        "summary": "Update email template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateEmailTemplateRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailTemplate" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["email-templates"],
+        "summary": "Delete email template",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/email-templates/{id}/preview": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["email-templates"],
+        "summary": "Preview email template with variables",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "additionalProperties": { "type": "string" } } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview rendered",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailPreview" } } }
+          }
+        }
+      }
+    },
+    "/email-templates/{id}/duplicate": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["email-templates"],
+        "summary": "Duplicate template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Duplicated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailTemplate" } } }
+          }
+        }
+      }
+    },
+    "/email-templates/{id}/send-test": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "post": {
+        "tags": ["email-templates"],
+        "summary": "Send test email",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "to": { "type": "string" }, "variables": { "type": "object" } } } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Sent",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/email/send": {
+      "post": {
+        "tags": ["messages"],
+        "summary": "Send single email (raw)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransactionalEmailRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseMessage" } } }
+          }
+        }
+      }
+    },
+    "/email/send-template": {
+      "post": {
+        "tags": ["messages"],
+        "summary": "Send single email with template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateEmailRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseMessage" } } }
+          }
+        }
+      }
+    },
+    "/unsubscribes": {
+      "get": {
+        "tags": ["unsubscribes"],
+        "summary": "List unsubscribes",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "scope", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseUnsubscribes" } } }
+          }
+        }
+      }
+    },
+    "/unsubscribes/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "delete": {
+        "tags": ["unsubscribes"],
+        "summary": "Resubscribe contact",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Resubscribed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/unsubscribes/check": {
+      "get": {
+        "tags": ["unsubscribes"],
+        "summary": "Check if email is unsubscribed",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "email", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "unsubscribed": { "type": "boolean" } } } } }
+          }
+        }
+      }
+    },
+    "/suppressions": {
+      "get": {
+        "tags": ["suppressions"],
+        "summary": "List suppressions",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/pageQuery" },
+          { "$ref": "#/components/parameters/perPageQuery" },
+          { "name": "reason", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseSuppressions" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["suppressions"],
+        "summary": "Add email to suppression list",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string" }, "reason": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Added",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/suppressions/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "delete": {
+        "tags": ["suppressions"],
+        "summary": "Remove from suppression list",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+          }
+        }
+      }
+    },
+    "/suppressions/check": {
+      "post": {
+        "tags": ["suppressions"],
+        "summary": "Bulk check suppression list",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "emails": { "type": "array", "items": { "type": "string" } } } } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "suppressed": { "type": "array", "items": { "type": "string" } } } } } }
+          }
+        }
+      }
+    },
+    "/analytics/email": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get email overview stats",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailStats" } } }
+          }
+        }
+      }
+    },
+    "/analytics/email/campaigns/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/idPath" }],
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get email campaign report",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseEmailCampaignStats" } } }
+          }
+        }
+      }
+    },
+    "/analytics/email/bounces": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get bounce report",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseBounceReport" } } }
+          }
+        }
+      }
+    },
+    "/analytics/email/reputation": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get domain reputation report",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponseDomainReputation" } } }
+          }
+        }
+      }
+    },
+    "/analytics/email/links/{id}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/idPath" },
+        { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+      ],
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get top links report for a campaign",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/LinkStats" } } } } } }
+          }
+        }
+      }
+    },
+    "/analytics/email/engagement": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get engagement by hour report",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/HourlyEngagement" } } } } } }
+          }
+        }
+      }
+    },
+    "/unsubscribe/{token}": {
+      "parameters": [{ "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "tags": ["webhooks"],
+        "summary": "Public unsubscribe link handler",
+        "responses": {
+          "200": { "description": "Successfully unsubscribed" }
+        }
+      }
+    },
+    "/webhook/whatsapp": {
+      "get": {
+        "tags": ["webhooks"],
+        "summary": "Meta webhook verification challenge",
+        "parameters": [
+          { "name": "hub.mode", "in": "query", "schema": { "type": "string" } },
+          { "name": "hub.verify_token", "in": "query", "schema": { "type": "string" } },
+          { "name": "hub.challenge", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Success" } }
+      },
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "WhatsApp delivery receipts and inbound messages",
+        "responses": { "200": { "description": "Accepted" } }
+      }
+    },
+    "/webhook/sms": {
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "SMS delivery receipts",
+        "responses": { "200": { "description": "Accepted" } }
+      }
+    },
+    "/webhook/email/sendgrid": {
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "SendGrid email events webhook",
+        "responses": { "200": { "description": "Accepted" } }
+      }
+    },
+    "/webhook/email/mailgun": {
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Mailgun email events webhook",
+        "responses": { "200": { "description": "Accepted" } }
+      }
+    },
+    "/webhook/email/postmark": {
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Postmark email events webhook",
+        "responses": { "200": { "description": "Accepted" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "idPath": { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "pageQuery": { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+      "perPageQuery": { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } }
+    },
+    "schemas": {
+      "APIResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "type": "object" },
+          "meta": { "$ref": "#/components/schemas/Pagination" }
+        }
+      },
+      "APIError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "field": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer" },
+          "per_page": { "type": "integer" },
+          "total": { "type": "integer" },
+          "total_pages": { "type": "integer" }
+        }
+      },
+      "ProviderConfig": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Channel": { "type": "string" },
+          "Provider": { "type": "string" },
+          "IsActive": { "type": "boolean" },
+          "PhoneNumberID": { "type": "string" },
+          "WABAID": { "type": "string" },
+          "BusinessID": { "type": "string" },
+          "DisplayPhone": { "type": "string" },
+          "FromEmail": { "type": "string" },
+          "FromName": { "type": "string" },
+          "ReplyToEmail": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" },
+          "UpdatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Channel": { "type": "string" },
+          "Direction": { "type": "string" },
+          "Recipient": { "type": "string" },
+          "Sender": { "type": "string" },
+          "MessageType": { "type": "string" },
+          "TemplateName": { "type": "string" },
+          "Status": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Channel": { "type": "string" },
+          "Name": { "type": "string" },
+          "Language": { "type": "string" },
+          "Category": { "type": "string" },
+          "Status": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "EmailTemplate": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Name": { "type": "string" },
+          "Subject": { "type": "string" },
+          "Category": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Phone": { "type": "string" },
+          "Email": { "type": "string" },
+          "Name": { "type": "string" },
+          "Tags": { "type": "array", "items": { "type": "string" } },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Name": { "type": "string" },
+          "Channel": { "type": "string" },
+          "Status": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Segment": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Name": { "type": "string" },
+          "IsDynamic": { "type": "boolean" },
+          "Rules": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "Unsubscribe": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Email": { "type": "string" },
+          "Scope": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Suppression": {
+        "type": "object",
+        "properties": {
+          "ID": { "type": "string", "format": "uuid" },
+          "Email": { "type": "string" },
+          "Reason": { "type": "string" },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "required": ["Channel", "Recipient", "MessageType"],
+        "properties": {
+          "Channel": { "type": "string" },
+          "Recipient": { "type": "string" },
+          "MessageType": { "type": "string" },
+          "TemplateName": { "type": "string" },
+          "TemplateLanguage": { "type": "string" },
+          "TemplateParams": { "type": "object", "additionalProperties": { "type": "string" } },
+          "Text": { "type": "string" },
+          "MediaURL": { "type": "string" },
+          "MediaType": { "type": "string" },
+          "Metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "CreateTemplateRequest": {
+        "type": "object",
+        "required": ["Channel", "Name", "Language", "Category", "Components"],
+        "properties": {
+          "Channel": { "type": "string" },
+          "Name": { "type": "string" },
+          "Language": { "type": "string" },
+          "Category": { "type": "string" },
+          "Components": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "UpdateTemplateRequest": {
+        "type": "object",
+        "properties": {
+          "Category": { "type": "string" },
+          "Components": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "CreateContactRequest": {
+        "type": "object",
+        "properties": {
+          "Phone": { "type": "string" },
+          "Email": { "type": "string" },
+          "Name": { "type": "string" },
+          "Attributes": { "type": "object", "additionalProperties": { "type": "string" } },
+          "Tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UpdateContactRequest": {
+        "type": "object",
+        "properties": {
+          "Phone": { "type": "string" },
+          "Email": { "type": "string" },
+          "Name": { "type": "string" },
+          "Attributes": { "type": "object", "additionalProperties": { "type": "string" } },
+          "Tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "CreateCampaignRequest": {
+        "type": "object",
+        "required": ["Name", "Channel", "TemplateID"],
+        "properties": {
+          "Name": { "type": "string" },
+          "Channel": { "type": "string" },
+          "TemplateID": { "type": "string", "format": "uuid" },
+          "TemplateParams": { "type": "object", "additionalProperties": { "type": "string" } },
+          "SegmentID": { "type": "string", "format": "uuid" },
+          "ContactIDs": { "type": "array", "items": { "type": "string", "format": "uuid" } },
+          "ScheduledAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UpdateCampaignRequest": {
+        "type": "object",
+        "properties": {
+          "Name": { "type": "string" },
+          "TemplateParams": { "type": "object", "additionalProperties": { "type": "string" } },
+          "SegmentID": { "type": "string", "format": "uuid" },
+          "ContactIDs": { "type": "array", "items": { "type": "string", "format": "uuid" } },
+          "ScheduledAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateEmailTemplateRequest": {
+        "type": "object",
+        "required": ["Name", "Subject", "HTMLBody", "Category"],
+        "properties": {
+          "Name": { "type": "string" },
+          "Subject": { "type": "string" },
+          "PreviewText": { "type": "string" },
+          "HTMLBody": { "type": "string" },
+          "TextBody": { "type": "string" },
+          "Category": { "type": "string" },
+          "Variables": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UpdateEmailTemplateRequest": {
+        "type": "object",
+        "properties": {
+          "Subject": { "type": "string" },
+          "PreviewText": { "type": "string" },
+          "HTMLBody": { "type": "string" },
+          "TextBody": { "type": "string" },
+          "Category": { "type": "string" },
+          "Variables": { "type": "array", "items": { "type": "string" } },
+          "IsActive": { "type": "boolean" }
+        }
+      },
+      "TransactionalEmailRequest": {
+        "type": "object",
+        "required": ["To", "Subject", "HTMLBody"],
+        "properties": {
+          "To": { "type": "string" },
+          "Subject": { "type": "string" },
+          "HTMLBody": { "type": "string" },
+          "TextBody": { "type": "string" },
+          "FromEmail": { "type": "string" },
+          "FromName": { "type": "string" },
+          "ReplyTo": { "type": "string" },
+          "CC": { "type": "array", "items": { "type": "string" } },
+          "BCC": { "type": "array", "items": { "type": "string" } },
+          "Headers": { "type": "object", "additionalProperties": { "type": "string" } },
+          "Attachments": { "type": "array", "items": { "type": "object" } },
+          "Tags": { "type": "array", "items": { "type": "string" } },
+          "Metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "TemplateEmailRequest": {
+        "type": "object",
+        "required": ["To", "TemplateName"],
+        "properties": {
+          "To": { "type": "string" },
+          "TemplateName": { "type": "string" },
+          "Variables": { "type": "object", "additionalProperties": { "type": "string" } },
+          "FromEmail": { "type": "string" },
+          "FromName": { "type": "string" },
+          "ReplyTo": { "type": "string" },
+          "CC": { "type": "array", "items": { "type": "string" } },
+          "BCC": { "type": "array", "items": { "type": "string" } },
+          "Attachments": { "type": "array", "items": { "type": "object" } },
+          "Tags": { "type": "array", "items": { "type": "string" } },
+          "Metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "LinkStats": {
+        "type": "object",
+        "properties": {
+          "URL": { "type": "string" },
+          "TotalClicks": { "type": "integer" },
+          "UniqueClicks": { "type": "integer" }
+        }
+      },
+      "HourlyEngagement": {
+        "type": "object",
+        "properties": {
+          "Hour": { "type": "integer" },
+          "Count": { "type": "integer" }
+        }
+      },
+      "APIResponseProviderConfigs": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ProviderConfig" } } } }]
+      },
+      "APIResponseProviderConfig": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/ProviderConfig" } } }]
+      },
+      "APIResponseTemplates": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Template" } } } }]
+      },
+      "APIResponseTemplate": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/Template" } } }]
+      },
+      "APIResponseMessages": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } } } }]
+      },
+      "APIResponseMessage": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/Message" } } }]
+      },
+      "APIResponseContacts": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Contact" } } } }]
+      },
+      "APIResponseContact": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/Contact" } } }]
+      },
+      "APIResponseSegments": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Segment" } } } }]
+      },
+      "APIResponseSegment": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/Segment" } } }]
+      },
+      "APIResponseCampaigns": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Campaign" } } } }]
+      },
+      "APIResponseCampaign": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/Campaign" } } }]
+      },
+      "APIResponseCampaignStats": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object" } } }]
+      },
+      "APIResponseEmailTemplates": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/EmailTemplate" } } } }]
+      },
+      "APIResponseEmailTemplate": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "$ref": "#/components/schemas/EmailTemplate" } } }]
+      },
+      "APIResponseEmailPreview": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object", "properties": { "Subject": { "type": "string" }, "HTMLBody": { "type": "string" }, "TextBody": { "type": "string" } } } } }]
+      },
+      "APIResponseUnsubscribes": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Unsubscribe" } } } }]
+      },
+      "APIResponseSuppressions": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Suppression" } } } }]
+      },
+      "APIResponseEmailStats": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object" } } }]
+      },
+      "APIResponseEmailCampaignStats": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object" } } }]
+      },
+      "APIResponseBounceReport": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object" } } }]
+      },
+      "APIResponseDomainReputation": {
+        "allOf": [{ "$ref": "#/components/schemas/APIResponse" }, { "properties": { "data": { "type": "object" } } }]
+      }
+    }
+  }
+}
