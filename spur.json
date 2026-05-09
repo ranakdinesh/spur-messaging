@@ -1,0 +1,42 @@
+{
+  "name": "messaging",
+  "version": "1.0.0",
+  "description": "WhatsApp, Email, SMS — campaigns, templates, contacts, analytics",
+  "go_package": "github.com/ranakdinesh/spur-messaging",
+  "private": true,
+  "status": "alpha",
+  "required_env": [
+    "MESSAGING_ENCRYPTION_KEY",
+    "MESSAGING_WEBHOOK_BASE_URL",
+    "MESSAGING_REDIS_URL"
+  ],
+  "optional_env": [
+    "MESSAGING_DEFAULT_RATE_LIMIT",
+    "MESSAGING_WORKER_COUNT",
+    "MESSAGING_EMAIL_PROVIDER",
+    "MESSAGING_EMAIL_FROM_ADDRESS",
+    "MESSAGING_EMAIL_FROM_NAME",
+    "MESSAGING_EMAIL_TRACK_OPENS",
+    "MESSAGING_EMAIL_TRACK_CLICKS",
+    "MESSAGING_SMS_PROVIDER",
+    "MESSAGING_SMS_SENDER_ID",
+    "SENDGRID_API_KEY",
+    "MAILGUN_API_KEY",
+    "MAILGUN_DOMAIN",
+    "POSTMARK_SERVER_TOKEN",
+    "MSG91_AUTH_KEY",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "TWILIO_FROM_NUMBER"
+  ],
+  "has_sqlc": true,
+  "config_struct": "MessagingConfig",
+  "config_env_prefix": "MESSAGING_",
+  "app_field": "Messaging *messaging.Module",
+  "app_value": "Messaging: messagingModule,",
+  "wire_code": {
+    "import": "messaging \"github.com/ranakdinesh/spur-messaging\"",
+    "init": "encKey, err := hex.DecodeString(cfg.MessagingEncryptionKey)\nif err != nil { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 64-char hex: %w\", err) }\nif len(encKey) != 32 { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 32 bytes (64 hex chars)\") }\nmessagingCfg := messaging.Config{\n\tEncryptionKey: encKey,\n\tWebhookBaseURL: cfg.MessagingWebhookBaseURL,\n\tDefaultRateLimit: cfg.GetIntOrDefault(\"MESSAGING_DEFAULT_RATE_LIMIT\", 10),\n\tRedisURL: cfg.MessagingRedisURL,\n\tWorkerCount: cfg.GetIntOrDefault(\"MESSAGING_WORKER_COUNT\", 5),\n\tEmailProvider: cfg.GetOrDefault(\"MESSAGING_EMAIL_PROVIDER\", \"sendgrid\"),\n\tEmailAPIKey: cfg.ResolveEmailAPIKey(),\n\tEmailFromAddress: cfg.GetOrDefault(\"MESSAGING_EMAIL_FROM_ADDRESS\", \"noreply@example.com\"),\n\tEmailFromName: cfg.GetOrDefault(\"MESSAGING_EMAIL_FROM_NAME\", \"Spur\"),\n\tEmailTrackOpens: cfg.GetBoolOrDefault(\"MESSAGING_EMAIL_TRACK_OPENS\", true),\n\tEmailTrackClicks: cfg.GetBoolOrDefault(\"MESSAGING_EMAIL_TRACK_CLICKS\", true),\n\tSMSProvider: cfg.GetOrDefault(\"MESSAGING_SMS_PROVIDER\", \"msg91\"),\n\tSMSAPIKey: cfg.ResolveSMSAPIKey(),\n\tSMSSenderID: cfg.GetOrDefault(\"MESSAGING_SMS_SENDER_ID\", \"SPUR\"),\n}\nmessagingLog := infra.Log.Logger()\nmessagingModule, err := messaging.New(ctx, messaging.Options{DB: infra.DB, Log: &messagingLog, Cfg: messagingCfg})\nif err != nil { return nil, fmt.Errorf(\"messaging: %w\", err) }",
+    "routes": "r.Route(\"/messaging\", func(r chi.Router) {\n\tr.Use(identityModule.AuthGuard.Middleware)\n\tr.Use(identityModule.AuthGuard.TenantIsolation)\n\tmessagingModule.RegisterRoutes(r)\n})\nr.Get(\"/messaging/webhook/whatsapp\", messagingModule.WebhookHandler.Verify)\nr.Post(\"/messaging/webhook/whatsapp\", messagingModule.WebhookHandler.Handle)\nr.Post(\"/messaging/webhook/email/sendgrid\", messagingModule.WebhookHandler.HandleSendGrid)\nr.Post(\"/messaging/webhook/email/mailgun\", messagingModule.WebhookHandler.HandleMailgun)\nr.Post(\"/messaging/webhook/email/postmark\", messagingModule.WebhookHandler.HandlePostmark)\nr.Post(\"/messaging/webhook/sms\", messagingModule.WebhookHandler.HandleSMS)\nr.Get(\"/messaging/unsubscribe/{token}\", messagingModule.WebhookHandler.HandleUnsubscribeLink)"
+  }
+}

@@ -100,7 +100,4 @@ func RegisterRoutes(r chi.Router,
 		r.Get("/analytics/email/links/{id}", analH.TopLinksReport)          // messaging:analytics:read
 		r.Get("/analytics/email/engagement", analH.EngagementByHour)        // messaging:analytics:read
 	})
-
-	// Public unsubscribe link
-	r.Get("/messaging/unsubscribe/{token}", unsubH.HandleUnsubscribeLink)
 }

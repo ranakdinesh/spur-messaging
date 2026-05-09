@@ -31,6 +31,10 @@ func (h *WebhookHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(resp))
 }
 
+func (h *WebhookHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	h.HandleWhatsApp(w, r)
+}
+
 func (h *WebhookHandler) HandleWhatsApp(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -65,5 +69,10 @@ func (h *WebhookHandler) HandleMailgun(w http.ResponseWriter, r *http.Request) {
 
 func (h *WebhookHandler) HandlePostmark(w http.ResponseWriter, r *http.Request) {
 	// Postmark email webhook
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *WebhookHandler) HandleUnsubscribeLink(w http.ResponseWriter, r *http.Request) {
+	// HandleUnsubscribeLink public endpoint
 	w.WriteHeader(http.StatusOK)
 }
