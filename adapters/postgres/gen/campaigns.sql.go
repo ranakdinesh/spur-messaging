@@ -117,6 +117,47 @@ func (q *Queries) GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams
 	return i, err
 }
 
+const getRunningCampaigns = `-- name: GetRunningCampaigns :many
+SELECT id, tenant_id, name, channel, template_id, template_params, segment_id, contact_ids, scheduled_at, started_at, completed_at, status, stats, created_at, updated_at FROM messaging.campaigns
+WHERE status = 'running'
+`
+
+func (q *Queries) GetRunningCampaigns(ctx context.Context) ([]MessagingCampaign, error) {
+	rows, err := q.db.Query(ctx, getRunningCampaigns)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MessagingCampaign
+	for rows.Next() {
+		var i MessagingCampaign
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Channel,
+			&i.TemplateID,
+			&i.TemplateParams,
+			&i.SegmentID,
+			&i.ContactIds,
+			&i.ScheduledAt,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.Status,
+			&i.Stats,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getScheduledCampaigns = `-- name: GetScheduledCampaigns :many
 SELECT id, tenant_id, name, channel, template_id, template_params, segment_id, contact_ids, scheduled_at, started_at, completed_at, status, stats, created_at, updated_at FROM messaging.campaigns
 WHERE status = 'scheduled' AND scheduled_at <= $1

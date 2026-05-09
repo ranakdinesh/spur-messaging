@@ -118,6 +118,18 @@ func (s *Store) UpdateStatusByProviderID(ctx context.Context, providerMsgID stri
 	})
 }
 
+func (s *Store) GetByProviderID(ctx context.Context, providerMsgID string) (*domain.Message, error) {
+	m, err := s.q.GetMessageByProviderID(ctx, fromString(providerMsgID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	res := toMessageDomain(m)
+	return &res, nil
+}
+
 func (s *Store) GetByCampaignID(ctx context.Context, tenantID, campaignID uuid.UUID, page, perPage int) ([]domain.Message, int, error) {
 	rows, err := s.q.GetMessagesByCampaignID(ctx, gen.GetMessagesByCampaignIDParams{
 		TenantID:   tenantID,
@@ -162,6 +174,18 @@ func (s *Store) GetByCampaignID(ctx context.Context, tenantID, campaignID uuid.U
 		total = int(r.TotalCount)
 	}
 	return res, total, nil
+}
+
+func (s *Store) ExistsForCampaign(ctx context.Context, campaignID uuid.UUID, recipient string) (bool, error) {
+	return s.q.CheckMessageExistsForCampaign(ctx, gen.CheckMessageExistsForCampaignParams{
+		CampaignID: fromUUID(campaignID),
+		Recipient:  recipient,
+	})
+}
+
+func (s *Store) CountByCampaign(ctx context.Context, campaignID uuid.UUID) (int, error) {
+	count, err := s.q.CountMessagesByCampaign(ctx, fromUUID(campaignID))
+	return int(count), err
 }
 
 // TemplateRepository
@@ -541,6 +565,18 @@ func (s *Store) GetScheduledCampaigns(ctx context.Context, before time.Time) ([]
 	return res, nil
 }
 
+func (s *Store) GetRunningCampaigns(ctx context.Context) ([]domain.Campaign, error) {
+	rows, err := s.q.GetRunningCampaigns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var res []domain.Campaign
+	for _, r := range rows {
+		res = append(res, toCampaignDomain(r))
+	}
+	return res, nil
+}
+
 // ProviderConfigRepository
 func (s *Store) CreateProviderConfig(ctx context.Context, cfg *domain.ProviderConfig) error {
 	p, err := s.q.CreateProviderConfig(ctx, gen.CreateProviderConfigParams{
@@ -634,6 +670,14 @@ func (s *Store) UpdateProviderConfig(ctx context.Context, cfg *domain.ProviderCo
 	}
 	*cfg = toProviderConfigDomain(p)
 	return nil
+}
+
+func (s *Store) UpdateIsActive(ctx context.Context, tenantID, id uuid.UUID, isActive bool) error {
+	return s.q.UpdateProviderConfigIsActive(ctx, gen.UpdateProviderConfigIsActiveParams{
+		TenantID: tenantID,
+		ID:       id,
+		IsActive: isActive,
+	})
 }
 
 func (s *Store) DeleteProviderConfig(ctx context.Context, tenantID, id uuid.UUID) error {

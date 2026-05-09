@@ -38,6 +38,10 @@ type Config struct {
 	SMSProvider string
 	SMSAPIKey   string
 	SMSSenderID string
+
+	// WhatsApp platform-level config
+	WhatsAppWebhookVerifyToken string
+	WhatsAppMetaAppID          string
 }
 
 // Logger interface for platform logging
@@ -126,13 +130,13 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	suppressionSvc := services.NewSuppressionService(suppressionRepo)
 	unsubscribeSvc := services.NewUnsubscribeService(unsubscribeRepo)
 	contactSvc := services.NewContactService(contactRepo)
-	messageSvc := services.NewMessageService(msgRepo, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, providerRegistry)
-	templateSvc := services.NewTemplateService(tmplRepo, providerRegistry)
+	messageSvc := services.NewMessageService(msgRepo, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, emailTemplateRepo, providerRegistry, services.Config(opt.Cfg))
+	templateSvc := services.NewTemplateService(tmplRepo, campaignRepo, providerRegistry)
 	campaignSvc := services.NewCampaignService(campaignRepo, tmplRepo, segmentRepo, msgQueue, suppressionSvc, unsubscribeSvc, contactRepo)
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
 	emailAnalyticsSvc := services.NewEmailAnalyticsService(emailEventRepo)
-	emailSenderSvc := services.NewEmailSender(msgRepo, emailTemplateRepo, suppressionSvc, msgQueue)
-	webhookSvc := services.NewWebhookService(msgRepo, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo)
+	emailSenderSvc := services.NewEmailSender(messageSvc)
+	webhookSvc := services.NewWebhookService(msgRepo, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, opt.Log)
 
 	// 7. Create handlers
 	m := &Module{
@@ -147,7 +151,9 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 			UnsubscribeService:    unsubscribeSvc,
 			SuppressionService:    suppressionSvc,
 		},
-		WebhookHandler: http.NewWebhookHandler(webhookSvc),
+		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
+			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
+		}, opt.Log),
 	}
 
 	m.handlers.message = http.NewMessageHandler(messageSvc)
@@ -156,7 +162,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.handlers.campaign = http.NewCampaignHandler(campaignSvc)
 	m.handlers.contact = http.NewContactHandler(contactSvc)
 	m.handlers.segment = http.NewSegmentHandler(segmentServiceAdapter{store})
-	m.handlers.provider = http.NewProviderHandler(providerConfigRepo)
+	m.handlers.provider = http.NewProviderHandler(providerConfigRepo, messageSvc)
 	m.handlers.unsubscribe = http.NewUnsubscribeHandler(unsubscribeSvc)
 	m.handlers.suppression = http.NewSuppressionHandler(suppressionSvc)
 	m.handlers.analytics = http.NewAnalyticsHandler(messageSvc, emailAnalyticsSvc, campaignSvc)
@@ -168,14 +174,14 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.rateLimiter = http.NewRateLimiter(rateLimit, time.Second)
 
 	// 8. Start worker goroutines
-	sender := worker.NewSender(msgQueue, msgRepo, providerRegistry)
+	sender := worker.NewSender(msgQueue, msgRepo, campaignRepo, providerConfigRepo, providerRegistry)
 	go func() {
 		if err := sender.Start(ctx); err != nil {
 			opt.Log.Error("Sender worker stopped with error", "error", err)
 		}
 	}()
 
-	campaignExecutor := worker.NewCampaignExecutor(campaignRepo, contactRepo, segmentRepo, suppressionSvc, unsubscribeSvc, msgRepo, msgQueue)
+	campaignExecutor := worker.NewCampaignExecutor(campaignRepo, contactRepo, segmentRepo, tmplRepo, suppressionSvc, unsubscribeSvc, msgRepo, msgQueue)
 	go campaignExecutor.Start(ctx)
 
 	templateSync := worker.NewTemplateSync(tmplRepo, providerRegistry)

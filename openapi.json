@@ -427,7 +427,17 @@
         "responses": {
           "200": {
             "description": "Imported",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/BulkImportResult" }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1160,6 +1170,25 @@
       "perPageQuery": { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } }
     },
     "schemas": {
+      "BulkImportResult": {
+        "type": "object",
+        "properties": {
+          "imported": { "type": "integer" },
+          "duplicates": { "type": "integer" },
+          "total": { "type": "integer" },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "row": { "type": "integer" },
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
       "APIResponse": {
         "type": "object",
         "properties": {
@@ -1175,7 +1204,10 @@
           "error": {
             "type": "object",
             "properties": {
-              "code": { "type": "string" },
+              "code": { 
+                "type": "string",
+                "description": "Machine-readable error code (e.g., NOT_FOUND, TEMPLATE_NOT_APPROVED, OPT_IN_REQUIRED, SESSION_WINDOW_CLOSED, EMAIL_SUPPRESSED, RECIPIENT_UNSUBSCRIBED)"
+              },
               "message": { "type": "string" },
               "field": { "type": "string" }
             }
@@ -1205,6 +1237,9 @@
           "FromEmail": { "type": "string" },
           "FromName": { "type": "string" },
           "ReplyToEmail": { "type": "string" },
+          "TrackOpens": { "type": "boolean" },
+          "TrackClicks": { "type": "boolean" },
+          "SMSSenderID": { "type": "string" },
           "CreatedAt": { "type": "string", "format": "date-time" },
           "UpdatedAt": { "type": "string", "format": "date-time" }
         }
@@ -1306,7 +1341,15 @@
           "Text": { "type": "string" },
           "MediaURL": { "type": "string" },
           "MediaType": { "type": "string" },
-          "Metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+          "Metadata": { "type": "object", "additionalProperties": { "type": "string" } },
+          "FromEmail": { "type": "string" },
+          "FromName": { "type": "string" },
+          "ReplyTo": { "type": "string" },
+          "TrackOpens": { "type": "boolean" },
+          "TrackClicks": { "type": "boolean" },
+          "SenderID": { "type": "string" },
+          "CC": { "type": "array", "items": { "type": "string" } },
+          "BCC": { "type": "array", "items": { "type": "string" } }
         }
       },
       "CreateTemplateRequest": {

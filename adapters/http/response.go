@@ -80,41 +80,33 @@ var errorCodeMap = map[error]struct {
 	domain.ErrCredentialsExpired:    {"CREDENTIALS_EXPIRED", 422},
 	domain.ErrRateLimitExceeded:     {"RATE_LIMIT_EXCEEDED", 429},
 
-	// WhatsApp
-	domain.ErrTemplateNotApproved: {"TEMPLATE_NOT_APPROVED", 422},
-	domain.ErrSessionWindowClosed: {"SESSION_WINDOW_CLOSED", 422},
-
-	// Email
-	domain.ErrSuppressed:   {"EMAIL_SUPPRESSED", 422},
-	domain.ErrUnsubscribed: {"RECIPIENT_UNSUBSCRIBED", 422},
-
-	// Contacts
-	domain.ErrOptInRequired: {"OPT_IN_REQUIRED", 422},
-
-	// Campaigns
+	// Messaging-specific
+	domain.ErrSuppressed:            {"EMAIL_SUPPRESSED", 422},
+	domain.ErrUnsubscribed:          {"RECIPIENT_UNSUBSCRIBED", 422},
+	domain.ErrTemplateNotApproved:   {"TEMPLATE_NOT_APPROVED", 422},
+	domain.ErrOptInRequired:         {"OPT_IN_REQUIRED", 422},
+	domain.ErrSessionWindowClosed:   {"SESSION_WINDOW_CLOSED", 422},
 	domain.ErrCampaignNotExecutable: {"CAMPAIGN_NOT_EXECUTABLE", 422},
 	domain.ErrTemplateInUse:         {"TEMPLATE_IN_USE", 409},
-
-	// Infrastructure
-	domain.ErrQueueUnavailable: {"QUEUE_UNAVAILABLE", 503},
+	domain.ErrQueueUnavailable:      {"QUEUE_UNAVAILABLE", 503},
 }
 
 func RespondError(w http.ResponseWriter, err error) {
-	var domainErr *domain.DomainError
 	statusCode := http.StatusInternalServerError
 	code := "INTERNAL_ERROR"
 	message := err.Error()
 	field := ""
 
-	if errors.As(err, &domainErr) {
+	var innerErr = err
+	if domainErr, ok := errors.AsType[*domain.DomainError](err); ok {
 		message = domainErr.Message
 		field = domainErr.Field
-		err = domainErr.Err
+		innerErr = domainErr.Err
 	}
 
 	// Try to find the error in our map
 	for sentinel, entry := range errorCodeMap {
-		if errors.Is(err, sentinel) {
+		if errors.Is(innerErr, sentinel) {
 			code = entry.code
 			statusCode = entry.status
 			break

@@ -29,6 +29,9 @@ type ProviderConfig struct {
 	FromEmail     string // Email-specific: verified sender address
 	FromName      string // Email-specific: sender display name
 	ReplyToEmail  string // Email-specific: reply-to address
+	TrackOpens    *bool  // Email: override open tracking
+	TrackClicks   *bool  // Email: override click tracking
+	SMSSenderID   string // SMS: sender ID
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -52,8 +55,8 @@ type SMSCredentials struct {
 // The platform default provider is set via MESSAGING_EMAIL_PROVIDER env var.
 // Tenants can override by creating their own provider_config with their own keys.
 type EmailCredentials struct {
-	APIKey       string `json:"api_key"`                // All providers
-	Domain       string `json:"domain,omitempty"`       // Mailgun: sending domain
-	ServerToken  string `json:"server_token,omitempty"` // Postmark: server token
+	APIKey       string `json:"api_key"`                 // All providers
+	Domain       string `json:"domain,omitempty"`        // Mailgun: sending domain
+	ServerToken  string `json:"server_token,omitempty"`  // Postmark: server token
 	WebhookToken string `json:"webhook_token,omitempty"` // For webhook signature verification
 }

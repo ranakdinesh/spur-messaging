@@ -3,7 +3,6 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"regexp"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -12,27 +11,6 @@ import (
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
 )
-
-var templateNameRegex = regexp.MustCompile(`^[a-z0-9_]+$`)
-
-func validateTemplateName(name string) error {
-	if len(name) < 1 || len(name) > 512 {
-		return domain.NewValidationError("name", "template name must be lowercase alphanumeric with underscores")
-	}
-	if !templateNameRegex.MatchString(name) {
-		return domain.NewValidationError("name", "template name must be lowercase alphanumeric with underscores")
-	}
-	return nil
-}
-
-func validateTemplateCategory(cat domain.TemplateCategory) error {
-	switch cat {
-	case domain.TemplateCategoryMarketing, domain.TemplateCategoryUtility, domain.TemplateCategoryAuthentication:
-		return nil
-	default:
-		return domain.NewValidationError("category", "category must be marketing, utility, or authentication")
-	}
-}
 
 type TemplateHandler struct {
 	service ports.TemplateService
@@ -89,11 +67,17 @@ func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) 
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err := validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	var channel *domain.Channel
@@ -131,7 +115,7 @@ func (h *TemplateHandler) GetTemplate(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -153,7 +137,7 @@ func (h *TemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request)
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -181,7 +165,7 @@ func (h *TemplateHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request)
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -202,7 +186,7 @@ func (h *TemplateHandler) SubmitForApproval(w http.ResponseWriter, r *http.Reque
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -224,7 +208,7 @@ func (h *TemplateHandler) SyncStatus(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 

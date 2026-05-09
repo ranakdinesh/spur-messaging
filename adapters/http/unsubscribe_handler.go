@@ -29,11 +29,17 @@ func (h *UnsubscribeHandler) ListUnsubscribes(w http.ResponseWriter, r *http.Req
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err := validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	var scope *domain.UnsubscribeScope
@@ -65,7 +71,7 @@ func (h *UnsubscribeHandler) Resubscribe(w http.ResponseWriter, r *http.Request)
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid unsubscribe ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 

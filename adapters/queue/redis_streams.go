@@ -147,17 +147,17 @@ func (q *RedisQueue) consume(ctx context.Context, stream, consumer string, handl
 
 			// Handle message
 			if err := handler(ctx, msg); err != nil {
-				// On error, we might want to NACK or let it be re-delivered
-				// For now, let's just log it and NOT ACK so it stays in PEL
-				continue
+				// Section 10A.3: Only ACK after successful send + DB update.
+				// If handler returns error, we don't ACK, it stays in PEL.
+				return false, err
 			}
 
 			// ACK message
-			q.client.XAck(ctx, stream, ConsumerGroup, m.ID)
+			return true, q.client.XAck(ctx, stream, ConsumerGroup, m.ID).Err()
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
 func (q *RedisQueue) Stop() {

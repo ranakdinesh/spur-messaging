@@ -79,7 +79,7 @@ func (h *AnalyticsHandler) EmailCampaignReport(w http.ResponseWriter, r *http.Re
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid campaign ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *AnalyticsHandler) TopLinksReport(w http.ResponseWriter, r *http.Request
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid campaign ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 

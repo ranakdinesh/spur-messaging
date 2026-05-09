@@ -14,7 +14,10 @@ type MessageRepository interface {
 	List(ctx context.Context, tenantID uuid.UUID, filter MessageFilter) ([]domain.Message, int, error)
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status domain.MessageStatus, providerMsgID string) error
 	UpdateStatusByProviderID(ctx context.Context, providerMsgID string, status domain.MessageStatus, timestamp time.Time) error
+	GetByProviderID(ctx context.Context, providerMsgID string) (*domain.Message, error)
 	GetByCampaignID(ctx context.Context, tenantID, campaignID uuid.UUID, page, perPage int) ([]domain.Message, int, error)
+	ExistsForCampaign(ctx context.Context, campaignID uuid.UUID, recipient string) (bool, error)
+	CountByCampaign(ctx context.Context, campaignID uuid.UUID) (int, error)
 }
 
 type MessageFilter struct {
@@ -69,6 +72,7 @@ type CampaignRepository interface {
 	UpdateStats(ctx context.Context, tenantID, id uuid.UUID, stats domain.CampaignStats) error
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 	GetScheduledCampaigns(ctx context.Context, before time.Time) ([]domain.Campaign, error)
+	GetRunningCampaigns(ctx context.Context) ([]domain.Campaign, error)
 }
 
 type ProviderConfigRepository interface {
@@ -78,6 +82,7 @@ type ProviderConfigRepository interface {
 	GetByWABAID(ctx context.Context, wabaID string) (*domain.ProviderConfig, error) // for webhook routing
 	List(ctx context.Context, tenantID uuid.UUID) ([]domain.ProviderConfig, error)
 	Update(ctx context.Context, cfg *domain.ProviderConfig) error
+	UpdateIsActive(ctx context.Context, tenantID, id uuid.UUID, isActive bool) error
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 }
 
@@ -126,6 +131,6 @@ type SuppressionRepository interface {
 	Create(ctx context.Context, entry *domain.SuppressionEntry) error
 	IsSuppressed(ctx context.Context, tenantID uuid.UUID, email string) (bool, error)
 	List(ctx context.Context, tenantID uuid.UUID, reason *domain.SuppressionReason, page, perPage int) ([]domain.SuppressionEntry, int, error)
-	Delete(ctx context.Context, tenantID, id uuid.UUID) error                            // remove from suppression (admin only)
+	Delete(ctx context.Context, tenantID, id uuid.UUID) error                             // remove from suppression (admin only)
 	BulkCheck(ctx context.Context, tenantID uuid.UUID, emails []string) ([]string, error) // returns suppressed emails from list
 }

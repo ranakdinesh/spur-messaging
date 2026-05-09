@@ -44,3 +44,9 @@ RETURNING *;
 -- name: DeleteProviderConfig :exec
 DELETE FROM messaging.provider_configs
 WHERE tenant_id = $1 AND id = $2;
+
+-- name: UpdateProviderConfigIsActive :exec
+UPDATE messaging.provider_configs
+SET is_active = $3,
+    updated_at = now()
+WHERE tenant_id = $1 AND id = $2;

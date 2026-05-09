@@ -302,3 +302,21 @@ func (q *Queries) UpdateProviderConfig(ctx context.Context, arg UpdateProviderCo
 	)
 	return i, err
 }
+
+const updateProviderConfigIsActive = `-- name: UpdateProviderConfigIsActive :exec
+UPDATE messaging.provider_configs
+SET is_active = $3,
+    updated_at = now()
+WHERE tenant_id = $1 AND id = $2
+`
+
+type UpdateProviderConfigIsActiveParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	ID       uuid.UUID `json:"id"`
+	IsActive bool      `json:"is_active"`
+}
+
+func (q *Queries) UpdateProviderConfigIsActive(ctx context.Context, arg UpdateProviderConfigIsActiveParams) error {
+	_, err := q.db.Exec(ctx, updateProviderConfigIsActive, arg.TenantID, arg.ID, arg.IsActive)
+	return err
+}

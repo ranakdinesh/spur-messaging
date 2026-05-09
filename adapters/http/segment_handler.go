@@ -33,6 +33,11 @@ func (h *SegmentHandler) CreateSegment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validateSegmentRules(segment.Rules); err != nil {
+		RespondError(w, err)
+		return
+	}
+
 	if err := h.service.Create(r.Context(), tenantID, &segment); err != nil {
 		RespondError(w, err)
 		return
@@ -66,7 +71,7 @@ func (h *SegmentHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid segment ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -88,13 +93,18 @@ func (h *SegmentHandler) UpdateSegment(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid segment ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
 	var segment domain.Segment
 	if err := json.NewDecoder(r.Body).Decode(&segment); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
+		return
+	}
+
+	if err := validateSegmentRules(segment.Rules); err != nil {
+		RespondError(w, err)
 		return
 	}
 	segment.ID = id
@@ -116,7 +126,7 @@ func (h *SegmentHandler) DeleteSegment(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid segment ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -137,18 +147,24 @@ func (h *SegmentHandler) ResolveContacts(w http.ResponseWriter, r *http.Request)
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid segment ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err = validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	contacts, total, err := h.service.ResolveContacts(r.Context(), tenantID, id, page, perPage)

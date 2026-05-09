@@ -53,3 +53,7 @@ WHERE tenant_id = $1 AND id = $2;
 -- name: GetScheduledCampaigns :many
 SELECT * FROM messaging.campaigns
 WHERE status = 'scheduled' AND scheduled_at <= $1;
+
+-- name: GetRunningCampaigns :many
+SELECT * FROM messaging.campaigns
+WHERE status = 'running';

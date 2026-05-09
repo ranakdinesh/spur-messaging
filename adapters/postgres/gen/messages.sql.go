@@ -14,6 +14,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkMessageExistsForCampaign = `-- name: CheckMessageExistsForCampaign :one
+SELECT EXISTS (
+    SELECT 1 FROM messaging.messages
+    WHERE campaign_id = $1 AND recipient = $2
+)
+`
+
+type CheckMessageExistsForCampaignParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	Recipient  string      `json:"recipient"`
+}
+
+func (q *Queries) CheckMessageExistsForCampaign(ctx context.Context, arg CheckMessageExistsForCampaignParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkMessageExistsForCampaign, arg.CampaignID, arg.Recipient)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const countMessagesByCampaign = `-- name: CountMessagesByCampaign :one
+SELECT COUNT(*) FROM messaging.messages
+WHERE campaign_id = $1
+`
+
+func (q *Queries) CountMessagesByCampaign(ctx context.Context, campaignID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countMessagesByCampaign, campaignID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMessage = `-- name: CreateMessage :one
 
 INSERT INTO messaging.messages (
@@ -125,6 +156,45 @@ type GetMessageByIDParams struct {
 
 func (q *Queries) GetMessageByID(ctx context.Context, arg GetMessageByIDParams) (MessagingMessage, error) {
 	row := q.db.QueryRow(ctx, getMessageByID, arg.TenantID, arg.ID)
+	var i MessagingMessage
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.ConversationID,
+		&i.Channel,
+		&i.Direction,
+		&i.Recipient,
+		&i.Sender,
+		&i.MessageType,
+		&i.TemplateID,
+		&i.TemplateName,
+		&i.TemplateParams,
+		&i.TextBody,
+		&i.MediaUrl,
+		&i.MediaType,
+		&i.ProviderMessageID,
+		&i.Status,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.Cost,
+		&i.SentAt,
+		&i.DeliveredAt,
+		&i.ReadAt,
+		&i.FailedAt,
+		&i.CreatedAt,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const getMessageByProviderID = `-- name: GetMessageByProviderID :one
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+WHERE provider_message_id = $1
+`
+
+func (q *Queries) GetMessageByProviderID(ctx context.Context, providerMessageID pgtype.Text) (MessagingMessage, error) {
+	row := q.db.QueryRow(ctx, getMessageByProviderID, providerMessageID)
 	var i MessagingMessage
 	err := row.Scan(
 		&i.ID,

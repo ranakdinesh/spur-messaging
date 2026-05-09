@@ -12,20 +12,20 @@ import (
 
 type ProviderRegistry struct {
 	configRepo ports.ProviderConfigRepository
-	providers  map[domain.Channel]map[string]ports.Provider
+	Providers  map[domain.Channel]map[string]ports.Provider
 }
 
 func NewProviderRegistry(configRepo ports.ProviderConfigRepository) *ProviderRegistry {
 	return &ProviderRegistry{
 		configRepo: configRepo,
-		providers:  make(map[domain.Channel]map[string]ports.Provider),
+		Providers:  make(map[domain.Channel]map[string]ports.Provider),
 	}
 }
 
 func (r *ProviderRegistry) Register(provider ports.Provider) {
 	channel := provider.Channel()
-	if r.providers[channel] == nil {
-		r.providers[channel] = make(map[string]ports.Provider)
+	if r.Providers[channel] == nil {
+		r.Providers[channel] = make(map[string]ports.Provider)
 	}
 	// We might need a better way to get provider name, but for now let's assume we can map it
 	// Actually, the ports.Provider interface doesn't have a Name() method.
@@ -35,17 +35,17 @@ func (r *ProviderRegistry) Register(provider ports.Provider) {
 // RegisterWithName registers a provider with a specific name (e.g. "meta_cloud", "sendgrid")
 func (r *ProviderRegistry) RegisterWithName(name string, provider ports.Provider) {
 	channel := provider.Channel()
-	if r.providers[channel] == nil {
-		r.providers[channel] = make(map[string]ports.Provider)
+	if r.Providers[channel] == nil {
+		r.Providers[channel] = make(map[string]ports.Provider)
 	}
-	r.providers[channel][name] = provider
+	r.Providers[channel][name] = provider
 }
 
 func (r *ProviderRegistry) GetProvider(ctx context.Context, tenantID uuid.UUID, channel domain.Channel) (ports.Provider, *domain.ProviderConfig, error) {
 	// 1. Check tenant's provider_configs
 	cfg, err := r.configRepo.GetByChannel(ctx, tenantID, channel)
 	if err == nil && cfg != nil && cfg.IsActive {
-		p, ok := r.providers[channel][cfg.Provider]
+		p, ok := r.Providers[channel][cfg.Provider]
 		if ok {
 			return p, cfg, nil
 		}
@@ -66,7 +66,7 @@ func (r *ProviderRegistry) GetProvider(ctx context.Context, tenantID uuid.UUID, 
 		return nil, nil, fmt.Errorf("no provider configured for channel %s", channel)
 	}
 
-	p, ok := r.providers[channel][defaultProviderName]
+	p, ok := r.Providers[channel][defaultProviderName]
 	if !ok {
 		return nil, nil, fmt.Errorf("provider %s not registered for channel %s", defaultProviderName, channel)
 	}

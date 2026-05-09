@@ -3,9 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,56 +11,6 @@ import (
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
 )
-
-var (
-	phoneRegex = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
-	emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-)
-
-func validatePhone(phone string) (string, error) {
-	phone = strings.ReplaceAll(phone, " ", "")
-	phone = strings.ReplaceAll(phone, "-", "")
-	phone = strings.ReplaceAll(phone, "(", "")
-	phone = strings.ReplaceAll(phone, ")", "")
-	if !phoneRegex.MatchString(phone) {
-		return "", domain.NewValidationError("phone", "phone must be E.164 format (e.g. +919810914244)")
-	}
-	return phone, nil
-}
-
-func validateEmail(email string) (string, error) {
-	if len(email) > 254 {
-		return "", domain.NewValidationError("email", "invalid email address")
-	}
-	if !emailRegex.MatchString(email) {
-		return "", domain.NewValidationError("email", "invalid email address")
-	}
-	return strings.ToLower(email), nil
-}
-
-func validateTags(tags []string) error {
-	if len(tags) > 10 {
-		return domain.NewValidationError("tags", "max 10 tags allowed, each max 50 chars")
-	}
-	for _, t := range tags {
-		if len(t) > 50 {
-			return domain.NewValidationError("tags", "max 10 tags allowed, each max 50 chars")
-		}
-	}
-	return nil
-}
-
-func validateMetadata(metadata map[string]string) error {
-	if len(metadata) > 20 {
-		return domain.NewValidationError("metadata", "metadata: max 20 keys, key max 50, value max 500 chars")
-	}
-	for k, v := range metadata {
-		if len(k) > 50 || len(v) > 500 {
-			return domain.NewValidationError("metadata", "metadata: max 20 keys, key max 50, value max 500 chars")
-		}
-	}
-	return nil
-}
 
 type MessageHandler struct {
 	service ports.MessageService
@@ -79,9 +27,39 @@ func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req ports.SendMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var body struct {
+		ports.SendMessageRequest
+		TrackOpens  *bool    `json:"track_opens"`
+		TrackClicks *bool    `json:"track_clicks"`
+		FromEmail   string   `json:"from_email"`
+		FromName    string   `json:"from_name"`
+		ReplyTo     string   `json:"reply_to"`
+		SenderID    string   `json:"sender_id"`
+		CC          []string `json:"cc"`
+		BCC         []string `json:"bcc"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
+		return
+	}
+
+	req := body.SendMessageRequest
+	req.TrackOpens = body.TrackOpens
+	req.TrackClicks = body.TrackClicks
+	req.FromEmail = body.FromEmail
+	req.FromName = body.FromName
+	req.ReplyTo = body.ReplyTo
+	req.SenderID = body.SenderID
+	req.CC = body.CC
+	req.BCC = body.BCC
+
+	if err := validateChannel(req.Channel); err != nil {
+		RespondError(w, err)
+		return
+	}
+
+	if err := validateMetadata(req.Metadata); err != nil {
+		RespondError(w, err)
 		return
 	}
 
@@ -168,7 +146,7 @@ func (h *MessageHandler) GetMessage(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid message ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -191,11 +169,17 @@ func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err := validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	filter := ports.MessageFilter{

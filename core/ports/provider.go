@@ -54,6 +54,16 @@ type WebhookEvent struct {
 	Text              *string
 	MediaURL          *string
 	WABAID            string // to route to correct tenant
+
+	// Email-specific fields
+	EmailEventType  domain.EmailEventType
+	EmailProviderID string
+	Email           string
+	URL             string // For click events
+	BounceType      string
+	BounceReason    string
+	UserAgent       string
+	IPAddress       string
 }
 
 // EmailProvider extends Provider with email-specific capabilities.

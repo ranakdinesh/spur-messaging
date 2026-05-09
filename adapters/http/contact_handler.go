@@ -80,11 +80,17 @@ func (h *ContactHandler) ListContacts(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err := validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	filter := ports.ContactFilter{
@@ -125,7 +131,7 @@ func (h *ContactHandler) GetContact(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid contact ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -147,7 +153,7 @@ func (h *ContactHandler) UpdateContact(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid contact ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -207,7 +213,7 @@ func (h *ContactHandler) DeleteContact(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid contact ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -237,32 +243,13 @@ func (h *ContactHandler) BulkImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range contacts {
-		if contacts[i].Phone != nil && *contacts[i].Phone != "" {
-			phone, err := validatePhone(*contacts[i].Phone)
-			if err != nil {
-				RespondError(w, err)
-				return
-			}
-			contacts[i].Phone = &phone
-		}
-		if contacts[i].Email != nil && *contacts[i].Email != "" {
-			email, err := validateEmail(*contacts[i].Email)
-			if err != nil {
-				RespondError(w, err)
-				return
-			}
-			contacts[i].Email = &email
-		}
-	}
-
-	count, err := h.service.BulkImport(r.Context(), tenantID, contacts)
+	result, err := h.service.BulkImport(r.Context(), tenantID, contacts)
 	if err != nil {
 		RespondError(w, err)
 		return
 	}
 
-	RespondOK(w, map[string]int{"count": count})
+	RespondOK(w, result)
 }
 
 func (h *ContactHandler) OptIn(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +261,7 @@ func (h *ContactHandler) OptIn(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid contact ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -303,7 +290,7 @@ func (h *ContactHandler) OptOut(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid contact ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 

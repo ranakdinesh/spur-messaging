@@ -308,6 +308,10 @@ func fromTimePtr(t *time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
+func fromUUID(u uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: u, Valid: true}
+}
+
 func toMessageCreateSQLC(m *domain.Message) gen.CreateMessageParams {
 	tp, _ := json.Marshal(m.TemplateParams)
 	meta, _ := json.Marshal(m.Metadata)

@@ -28,11 +28,23 @@ type SendMessageRequest struct {
 	MediaURL         *string
 	MediaType        *string
 	Metadata         map[string]string
+
+	// Per-request overrides (Tier 1) — all optional
+	// If empty, falls back to tenant config (Tier 2) then platform default (Tier 3)
+	FromEmail   string   // Email: override sender address
+	FromName    string   // Email: override sender name
+	ReplyTo     string   // Email: override reply-to
+	TrackOpens  *bool    // Email: override open tracking (pointer = nil means "use default")
+	TrackClicks *bool    // Email: override click tracking
+	SenderID    string   // SMS: override sender ID
+	CC          []string // Email only
+	BCC         []string // Email only
 }
 
 type TemplateService interface {
 	Create(ctx context.Context, tenantID uuid.UUID, req CreateTemplateRequest) (*domain.Template, error)
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Template, error)
+	GetByName(ctx context.Context, tenantID uuid.UUID, name, language string) (*domain.Template, error)
 	List(ctx context.Context, tenantID uuid.UUID, channel *domain.Channel, status *domain.TemplateStatus, page, perPage int) ([]domain.Template, int, error)
 	Update(ctx context.Context, tenantID, id uuid.UUID, req UpdateTemplateRequest) (*domain.Template, error)
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
@@ -89,17 +101,17 @@ type ContactService interface {
 	List(ctx context.Context, tenantID uuid.UUID, filter ContactFilter) ([]domain.Contact, int, error)
 	Update(ctx context.Context, tenantID, id uuid.UUID, req UpdateContactRequest) (*domain.Contact, error)
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
-	BulkImport(ctx context.Context, tenantID uuid.UUID, contacts []CreateContactRequest) (int, error)
+	BulkImport(ctx context.Context, tenantID uuid.UUID, contacts []CreateContactRequest) (BulkImportResult, error)
 	OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error
 	OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error
 }
 
 type CreateContactRequest struct {
-	Phone      *string
-	Email      *string
-	Name       *string
-	Attributes map[string]string
-	Tags       []string
+	Phone      *string           `json:"phone"`
+	Email      *string           `json:"email"`
+	Name       *string           `json:"name"`
+	Attributes map[string]string `json:"attributes"`
+	Tags       []string          `json:"tags"`
 }
 
 type UpdateContactRequest struct {
@@ -176,6 +188,19 @@ type UnsubscribeService interface {
 	List(ctx context.Context, tenantID uuid.UUID, scope *domain.UnsubscribeScope, page, perPage int) ([]domain.Unsubscribe, int, error)
 	// HandleUnsubscribeWebhook is called from the public unsubscribe endpoint
 	HandleUnsubscribeLink(ctx context.Context, token string) error
+}
+
+type BulkImportResult struct {
+	Imported   int              `json:"imported"`
+	Duplicates int              `json:"duplicates"`
+	Errors     []ImportRowError `json:"errors"`
+	Total      int              `json:"total"`
+}
+
+type ImportRowError struct {
+	Row     int    `json:"row"`
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 type SuppressionService interface {

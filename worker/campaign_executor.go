@@ -13,6 +13,7 @@ type CampaignExecutor struct {
 	campaignRepo   ports.CampaignRepository
 	contactRepo    ports.ContactRepository
 	segmentRepo    ports.SegmentRepository
+	templateRepo   ports.TemplateRepository
 	suppressionSvc ports.SuppressionService
 	unsubscribeSvc ports.UnsubscribeService
 	messageRepo    ports.MessageRepository
@@ -23,6 +24,7 @@ func NewCampaignExecutor(
 	campaignRepo ports.CampaignRepository,
 	contactRepo ports.ContactRepository,
 	segmentRepo ports.SegmentRepository,
+	templateRepo ports.TemplateRepository,
 	suppressionSvc ports.SuppressionService,
 	unsubscribeSvc ports.UnsubscribeService,
 	messageRepo ports.MessageRepository,
@@ -32,6 +34,7 @@ func NewCampaignExecutor(
 		campaignRepo:   campaignRepo,
 		contactRepo:    contactRepo,
 		segmentRepo:    segmentRepo,
+		templateRepo:   templateRepo,
 		suppressionSvc: suppressionSvc,
 		unsubscribeSvc: unsubscribeSvc,
 		messageRepo:    messageRepo,
@@ -40,6 +43,9 @@ func NewCampaignExecutor(
 }
 
 func (e *CampaignExecutor) Start(ctx context.Context) {
+	// Section 10A.3: Crash recovery on startup
+	e.RecoverRunningCampaigns(ctx)
+
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -65,11 +71,19 @@ func (e *CampaignExecutor) ProcessScheduledCampaigns(ctx context.Context) {
 }
 
 func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.Campaign) {
+	// Section 10A.3: Template deleted/deactivated re-check
+	tmpl, err := e.templateRepo.GetByID(ctx, campaign.TenantID, campaign.TemplateID)
+	if err != nil || tmpl.Status != domain.TemplateStatusApproved {
+		_ = e.campaignRepo.UpdateStatus(ctx, campaign.TenantID, campaign.ID, domain.CampaignStatusFailed)
+		// We could store the error message if UpdateStatus supported it or use metadata
+		return
+	}
+
 	// Update status to running
 	_ = e.campaignRepo.UpdateStatus(ctx, campaign.TenantID, campaign.ID, domain.CampaignStatusRunning)
 
 	var contacts []domain.Contact
-	var err error
+	stats := domain.CampaignStats{}
 
 	if campaign.SegmentID != nil {
 		// For simplicity, fetch all contacts in the segment. In real scenario, paginate.
@@ -77,9 +91,12 @@ func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.
 	} else if len(campaign.ContactIDs) > 0 {
 		for _, id := range campaign.ContactIDs {
 			contact, err := e.contactRepo.GetByID(ctx, campaign.TenantID, id)
-			if err == nil {
-				contacts = append(contacts, *contact)
+			if err != nil {
+				// Section 10A.3: Contact deleted mid-campaign
+				stats.Failed++ // Using Failed as "skipped"
+				continue
 			}
+			contacts = append(contacts, *contact)
 		}
 	}
 
@@ -88,9 +105,20 @@ func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.
 		return
 	}
 
-	stats := domain.CampaignStats{Total: len(contacts)}
+	stats.Total = len(contacts)
 
 	for _, contact := range contacts {
+		// Section 10A.3: Duplicate send prevention
+		recipient := e.getRecipient(campaign.Channel, contact)
+		if recipient == "" {
+			stats.Failed++
+			continue
+		}
+		exists, _ := e.messageRepo.ExistsForCampaign(ctx, campaign.ID, recipient)
+		if exists {
+			continue // Already sent or queued
+		}
+
 		// 1. Check suppression + unsubscribe for email
 		if campaign.Channel == domain.ChannelEmail && contact.Email != nil {
 			suppressed, _ := e.suppressionSvc.IsSuppressed(ctx, campaign.TenantID, *contact.Email)
@@ -135,8 +163,9 @@ func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.
 		}
 
 		if err := e.queue.Enqueue(ctx, qmsg); err != nil {
-			stats.Failed++
-			continue
+			// Section 10A.3: Redis unavailable during fan-out
+			_ = e.campaignRepo.UpdateStatus(ctx, campaign.TenantID, campaign.ID, domain.CampaignStatusFailed)
+			return
 		}
 
 		stats.Queued++
@@ -145,6 +174,17 @@ func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.
 	// Final status update
 	_ = e.campaignRepo.UpdateStatus(ctx, campaign.TenantID, campaign.ID, domain.CampaignStatusCompleted)
 	_ = e.campaignRepo.UpdateStats(ctx, campaign.TenantID, campaign.ID, stats)
+}
+
+func (e *CampaignExecutor) RecoverRunningCampaigns(ctx context.Context) {
+	campaigns, err := e.campaignRepo.GetRunningCampaigns(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, campaign := range campaigns {
+		go e.ExecuteCampaign(ctx, campaign)
+	}
 }
 
 func (e *CampaignExecutor) getRecipient(channel domain.Channel, contact domain.Contact) string {

@@ -14,13 +14,23 @@ import (
 type Sender struct {
 	queue            ports.MessageQueue
 	messageRepo      ports.MessageRepository
+	campaignRepo     ports.CampaignRepository
+	providerRepo     ports.ProviderConfigRepository
 	providerRegistry *services.ProviderRegistry
 }
 
-func NewSender(queue ports.MessageQueue, messageRepo ports.MessageRepository, providerRegistry *services.ProviderRegistry) *Sender {
+func NewSender(
+	queue ports.MessageQueue,
+	messageRepo ports.MessageRepository,
+	campaignRepo ports.CampaignRepository,
+	providerRepo ports.ProviderConfigRepository,
+	providerRegistry *services.ProviderRegistry,
+) *Sender {
 	return &Sender{
 		queue:            queue,
 		messageRepo:      messageRepo,
+		campaignRepo:     campaignRepo,
+		providerRepo:     providerRepo,
 		providerRegistry: providerRegistry,
 	}
 }
@@ -32,6 +42,12 @@ func (s *Sender) Start(ctx context.Context) error {
 func (s *Sender) HandleMessage(ctx context.Context, qmsg ports.QueueMessage) error {
 	// Load message from DB
 	msg, err := s.messageRepo.GetByID(ctx, qmsg.TenantID, qmsg.MessageID)
+	if err != nil {
+		return err
+	}
+
+	// Resolve provider config once
+	_, cfg, err := s.providerRegistry.GetProvider(ctx, msg.TenantID, msg.Channel)
 	if err != nil {
 		return err
 	}
@@ -52,7 +68,7 @@ func (s *Sender) HandleMessage(ctx context.Context, qmsg ports.QueueMessage) err
 
 		// Set 30-second HTTP timeout (Section 10A.3)
 		sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		lastErr = s.send(sendCtx, msg)
+		lastErr = s.sendWithCfg(sendCtx, msg, cfg)
 		cancel()
 
 		if lastErr == nil {
@@ -60,24 +76,61 @@ func (s *Sender) HandleMessage(ctx context.Context, qmsg ports.QueueMessage) err
 		}
 
 		// Section 10A.3: On provider 429
-		// Placeholder for 429 handling with Retry-After
+		if errors.Is(lastErr, domain.ErrRateLimitExceeded) {
+			// In a real scenario, we might extract Retry-After from a custom error type
+			// For now, let's use a default or simulated value
+			retryAfter := 60 * time.Second
+			// Log rate limit
+			fmt.Printf("Rate limit exceeded for tenant %s, channel %s. Retrying after %v\n", msg.TenantID, msg.Channel, retryAfter)
+			time.Sleep(retryAfter)
+			attempt-- // Don't count 429 as a failed attempt for max retries
+			continue
+		}
 
 		// Section 10A.3: On provider 401/403
-		// Placeholder for credential error handling
+		if errors.Is(lastErr, domain.ErrUnauthorized) || errors.Is(lastErr, domain.ErrForbidden) || errors.Is(lastErr, domain.ErrCredentialsExpired) {
+			// Set provider_config.is_active = false
+			if cfg != nil {
+				_ = s.providerRepo.UpdateIsActive(ctx, msg.TenantID, cfg.ID, false)
+			}
+			fmt.Printf("Provider credentials expired for tenant %s\n", msg.TenantID)
+
+			msg.Status = domain.MessageStatusFailed
+			errCode := "CREDENTIALS_EXPIRED"
+			msg.ErrorCode = &errCode
+			now := time.Now()
+			msg.FailedAt = &now
+			_ = s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, msg.Status, "")
+
+			return nil // Do not retry
+		}
 	}
 
 	// If we are here, all retries failed (Section 10A.3)
 	failReason := lastErr.Error()
 	msg.Status = domain.MessageStatusFailed
 	msg.ErrorMessage = &failReason
+	errCode := "PROVIDER_ERROR"
+	msg.ErrorCode = &errCode
 	now := time.Now()
 	msg.FailedAt = &now
 
-	return s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, msg.Status, "")
+	err = s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, msg.Status, "")
+
+	// For campaigns: increment campaign stats.failed counter
+	if msg.CampaignID != nil {
+		campaign, err := s.campaignRepo.GetByID(ctx, msg.TenantID, *msg.CampaignID)
+		if err == nil {
+			campaign.Stats.Failed++
+			_ = s.campaignRepo.UpdateStats(ctx, msg.TenantID, campaign.ID, campaign.Stats)
+		}
+	}
+
+	return err
 }
 
-func (s *Sender) send(ctx context.Context, msg *domain.Message) error {
-	provider, cfg, err := s.providerRegistry.GetProvider(ctx, msg.TenantID, msg.Channel)
+func (s *Sender) sendWithCfg(ctx context.Context, msg *domain.Message, cfg *domain.ProviderConfig) error {
+	provider, _, err := s.providerRegistry.GetProvider(ctx, msg.TenantID, msg.Channel)
 	if err != nil {
 		return err
 	}
@@ -104,8 +157,6 @@ func (s *Sender) send(ctx context.Context, msg *domain.Message) error {
 			TrackClicks: true,
 			Metadata:    map[string]string{"message_id": msg.ID.String(), "tenant_id": msg.TenantID.String()},
 		}
-		// In a real implementation, we'd render the template before enqueuing or here.
-		// AGENTS.md Section 12.10 says services render template before enqueuing.
 
 		result, err = emailProvider.SendEmail(ctx, cfg, req)
 
@@ -114,7 +165,6 @@ func (s *Sender) send(ctx context.Context, msg *domain.Message) error {
 			Recipient:    msg.Recipient,
 			MessageType:  msg.MessageType,
 			TemplateName: msg.TemplateName,
-			// ... other fields
 		}
 		if msg.TextBody != nil {
 			req.Text = msg.TextBody

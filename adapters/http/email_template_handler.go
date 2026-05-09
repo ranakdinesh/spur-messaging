@@ -12,16 +12,6 @@ import (
 	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
 )
 
-func validateEmailTemplate(req ports.CreateEmailTemplateRequest) error {
-	if len(req.Subject) < 1 || len(req.Subject) > 998 {
-		return domain.NewValidationError("subject", "subject is required (max 998 chars)")
-	}
-	if len(req.HTMLBody) < 1 || len(req.HTMLBody) > 5*1024*1024 {
-		return domain.NewValidationError("html_body", "html_body is required (max 5MB)")
-	}
-	return nil
-}
-
 type EmailTemplateHandler struct {
 	service ports.EmailTemplateService
 }
@@ -43,7 +33,7 @@ func (h *EmailTemplateHandler) CreateEmailTemplate(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if err := validateEmailTemplate(req); err != nil {
+	if err := validateEmailTemplate(req.Name, req.Subject, req.HTMLBody); err != nil {
 		RespondError(w, err)
 		return
 	}
@@ -67,11 +57,17 @@ func (h *EmailTemplateHandler) ListEmailTemplates(w http.ResponseWriter, r *http
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	perPage, _ := strconv.Atoi(q.Get("per_page"))
-	if page <= 0 {
+	if page == 0 {
 		page = 1
 	}
-	if perPage <= 0 {
+	if perPage == 0 {
 		perPage = 20
+	}
+
+	page, perPage, err := validatePagination(page, perPage)
+	if err != nil {
+		RespondError(w, err)
+		return
 	}
 
 	var category *domain.EmailCategory
@@ -103,7 +99,7 @@ func (h *EmailTemplateHandler) GetEmailTemplate(w http.ResponseWriter, r *http.R
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -125,7 +121,7 @@ func (h *EmailTemplateHandler) UpdateEmailTemplate(w http.ResponseWriter, r *htt
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -153,7 +149,7 @@ func (h *EmailTemplateHandler) DeleteEmailTemplate(w http.ResponseWriter, r *htt
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -174,7 +170,7 @@ func (h *EmailTemplateHandler) PreviewEmailTemplate(w http.ResponseWriter, r *ht
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 
@@ -204,7 +200,7 @@ func (h *EmailTemplateHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		RespondValidationError(w, "id", "invalid template ID")
+		RespondValidationError(w, "id", "invalid ID format")
 		return
 	}
 

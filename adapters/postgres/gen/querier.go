@@ -16,7 +16,9 @@ type Querier interface {
 	AddContactToSegment(ctx context.Context, arg AddContactToSegmentParams) error
 	BulkCheckSuppression(ctx context.Context, arg BulkCheckSuppressionParams) ([]string, error)
 	BulkCreateContacts(ctx context.Context, arg []BulkCreateContactsParams) (int64, error)
+	CheckMessageExistsForCampaign(ctx context.Context, arg CheckMessageExistsForCampaignParams) (bool, error)
 	ClearSegmentContacts(ctx context.Context, segmentID uuid.UUID) error
+	CountMessagesByCampaign(ctx context.Context, campaignID pgtype.UUID) (int64, error)
 	// sql/queries/campaigns.sql
 	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (MessagingCampaign, error)
 	// sql/queries/contacts.sql
@@ -60,12 +62,14 @@ type Querier interface {
 	GetEmailTemplateByID(ctx context.Context, arg GetEmailTemplateByIDParams) (MessagingEmailTemplate, error)
 	GetEmailTemplateByName(ctx context.Context, arg GetEmailTemplateByNameParams) (MessagingEmailTemplate, error)
 	GetMessageByID(ctx context.Context, arg GetMessageByIDParams) (MessagingMessage, error)
+	GetMessageByProviderID(ctx context.Context, providerMessageID pgtype.Text) (MessagingMessage, error)
 	// sql/queries/analytics.sql
 	GetMessageStats(ctx context.Context, arg GetMessageStatsParams) (GetMessageStatsRow, error)
 	GetMessagesByCampaignID(ctx context.Context, arg GetMessagesByCampaignIDParams) ([]GetMessagesByCampaignIDRow, error)
 	GetProviderConfigByChannel(ctx context.Context, arg GetProviderConfigByChannelParams) (MessagingProviderConfig, error)
 	GetProviderConfigByID(ctx context.Context, arg GetProviderConfigByIDParams) (MessagingProviderConfig, error)
 	GetProviderConfigByWABAID(ctx context.Context, wabaID pgtype.Text) (MessagingProviderConfig, error)
+	GetRunningCampaigns(ctx context.Context) ([]MessagingCampaign, error)
 	GetScheduledCampaigns(ctx context.Context, scheduledAt pgtype.Timestamptz) ([]MessagingCampaign, error)
 	GetSegmentByID(ctx context.Context, arg GetSegmentByIDParams) (MessagingSegment, error)
 	GetTemplateByID(ctx context.Context, arg GetTemplateByIDParams) (MessagingTemplate, error)
@@ -93,6 +97,7 @@ type Querier interface {
 	UpdateMessageStatusByProviderID(ctx context.Context, arg UpdateMessageStatusByProviderIDParams) error
 	UpdateOptIn(ctx context.Context, arg UpdateOptInParams) error
 	UpdateProviderConfig(ctx context.Context, arg UpdateProviderConfigParams) (MessagingProviderConfig, error)
+	UpdateProviderConfigIsActive(ctx context.Context, arg UpdateProviderConfigIsActiveParams) error
 	UpdateSegment(ctx context.Context, arg UpdateSegmentParams) (MessagingSegment, error)
 	UpdateTemplate(ctx context.Context, arg UpdateTemplateParams) (MessagingTemplate, error)
 	UpdateTemplateStatus(ctx context.Context, arg UpdateTemplateStatusParams) error

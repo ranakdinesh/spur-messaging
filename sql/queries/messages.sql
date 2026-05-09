@@ -43,6 +43,20 @@ SET status = $2,
     updated_at = now()
 WHERE provider_message_id = $1;
 
+-- name: GetMessageByProviderID :one
+SELECT * FROM messaging.messages
+WHERE provider_message_id = $1;
+
+-- name: CheckMessageExistsForCampaign :one
+SELECT EXISTS (
+    SELECT 1 FROM messaging.messages
+    WHERE campaign_id = $1 AND recipient = $2
+);
+
+-- name: CountMessagesByCampaign :one
+SELECT COUNT(*) FROM messaging.messages
+WHERE campaign_id = $1;
+
 -- name: GetMessagesByCampaignID :many
 SELECT *, count(*) OVER() as total_count
 FROM messaging.messages

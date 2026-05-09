@@ -77,6 +77,11 @@ func (s *CampaignService) Update(ctx context.Context, tenantID, id uuid.UUID, re
 		return nil, err
 	}
 
+	// Section 10A.2: only draft/scheduled campaigns → ErrInvalidInput
+	if campaign.Status != domain.CampaignStatusDraft && campaign.Status != domain.CampaignStatusScheduled {
+		return nil, domain.NewValidationError("status", "cannot update running/completed campaign")
+	}
+
 	if req.Name != nil {
 		campaign.Name = *req.Name
 	}
@@ -103,6 +108,14 @@ func (s *CampaignService) Update(ctx context.Context, tenantID, id uuid.UUID, re
 }
 
 func (s *CampaignService) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	campaign, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	// Section 10A.2: only draft campaigns → ErrInvalidInput
+	if campaign.Status != domain.CampaignStatusDraft {
+		return domain.NewValidationError("status", "only draft campaigns can be deleted")
+	}
 	return s.repo.Delete(ctx, tenantID, id)
 }
 
@@ -112,12 +125,12 @@ func (s *CampaignService) Execute(ctx context.Context, tenantID, id uuid.UUID) e
 		return err
 	}
 
-	// Section 10A.2: Campaign status check
+	// Section 10A.2: Campaign status check - draft or scheduled only
 	if campaign.Status != domain.CampaignStatusDraft && campaign.Status != domain.CampaignStatusScheduled {
 		return domain.ErrCampaignNotExecutable
 	}
 
-	// Section 10A.2: Referenced template exists and approved
+	// Section 10A.2: Referenced template exists AND approved
 	tmpl, err := s.templateRepo.GetByID(ctx, tenantID, campaign.TemplateID)
 	if err != nil {
 		return domain.ErrNotFound
@@ -249,10 +262,26 @@ func (s *CampaignService) Execute(ctx context.Context, tenantID, id uuid.UUID) e
 }
 
 func (s *CampaignService) Pause(ctx context.Context, tenantID, id uuid.UUID) error {
+	campaign, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	// Section 10A.2: only running campaigns → ErrInvalidInput
+	if campaign.Status != domain.CampaignStatusRunning {
+		return domain.NewValidationError("status", "can only pause running campaigns")
+	}
 	return s.repo.UpdateStatus(ctx, tenantID, id, domain.CampaignStatusPaused)
 }
 
 func (s *CampaignService) Resume(ctx context.Context, tenantID, id uuid.UUID) error {
+	campaign, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	// Section 10A.2: only paused campaigns → ErrInvalidInput
+	if campaign.Status != domain.CampaignStatusPaused {
+		return domain.NewValidationError("status", "can only resume paused campaigns")
+	}
 	return s.repo.UpdateStatus(ctx, tenantID, id, domain.CampaignStatusRunning)
 }
 
