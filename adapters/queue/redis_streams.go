@@ -22,6 +22,7 @@ type RedisQueue struct {
 	client *redis.Client
 	wg     sync.WaitGroup
 	done   chan struct{}
+	shared bool // true = client owned externally, don't close on Stop()
 }
 
 func NewRedisQueue(redisURL string) (*RedisQueue, error) {
@@ -34,6 +35,17 @@ func NewRedisQueue(redisURL string) (*RedisQueue, error) {
 		client: client,
 		done:   make(chan struct{}),
 	}, nil
+}
+
+// NewRedisQueueFromClient creates a RedisQueue from an existing Redis client.
+// Used in production where spur-template provides the shared Redis connection.
+// The caller owns the client lifecycle — Stop() will NOT close it.
+func NewRedisQueueFromClient(client *redis.Client) *RedisQueue {
+	return &RedisQueue{
+		client: client,
+		done:   make(chan struct{}),
+		shared: true,
+	}
 }
 
 func (q *RedisQueue) Enqueue(ctx context.Context, msg ports.QueueMessage) error {
@@ -163,5 +175,7 @@ func (q *RedisQueue) consume(ctx context.Context, stream, consumer string, handl
 func (q *RedisQueue) Stop() {
 	close(q.done)
 	q.wg.Wait()
-	q.client.Close()
+	if !q.shared {
+		q.client.Close()
+	}
 }

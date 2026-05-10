@@ -21,7 +21,6 @@ type Config struct {
 	EncryptionKey    []byte
 	WebhookBaseURL   string
 	DefaultRateLimit int
-	RedisURL         string
 	WorkerCount      int
 
 	EmailProvider    string

@@ -16,6 +16,7 @@ import (
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/core/services"
 	"github.com/ranakdinesh/spur-messaging/worker"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -24,7 +25,6 @@ type Config struct {
 	EncryptionKey    []byte // AES-256-GCM key for encrypting provider credentials
 	WebhookBaseURL   string // e.g. "https://api.example.com/messaging/webhook"
 	DefaultRateLimit int    // messages per second per tenant (default: 10)
-	RedisURL         string // Redis connection for message queue
 	WorkerCount      int    // number of concurrent send workers (default: 5)
 
 	// Email provider — set via MESSAGING_EMAIL_PROVIDER env var
@@ -76,9 +76,10 @@ func (z *zerologAdapter) event(e *zerolog.Event, msg string, args ...any) {
 
 // Options is passed by app.go when wiring the module
 type Options struct {
-	DB  *pgxpool.Pool
-	Log *zerolog.Logger
-	Cfg Config
+	DB    *pgxpool.Pool
+	Log   *zerolog.Logger
+	Cfg   Config
+	Redis *goredis.Client
 }
 
 // Services exposes service interfaces for cross-module use
@@ -135,10 +136,10 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	suppressionRepo := suppressionRepoAdapter{store}
 
 	// 4. Create Redis queue
-	msgQueue, err := queue.NewRedisQueue(opt.Cfg.RedisURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize redis queue: %w", err)
+	if opt.Redis == nil {
+		return nil, fmt.Errorf("messaging: Redis client is required")
 	}
+	msgQueue := queue.NewRedisQueueFromClient(opt.Redis)
 
 	// 5. Create provider registry and register providers
 	providerRegistry := services.NewProviderRegistry(providerConfigRepo)
@@ -153,7 +154,23 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	suppressionSvc := services.NewSuppressionService(suppressionRepo)
 	unsubscribeSvc := services.NewUnsubscribeService(unsubscribeRepo)
 	contactSvc := services.NewContactService(contactRepo)
-	messageSvc := services.NewMessageService(msgRepo, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, emailTemplateRepo, providerRegistry, services.Config(opt.Cfg))
+	messageSvc := services.NewMessageService(msgRepo, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, emailTemplateRepo, providerRegistry, services.Config{
+		EncryptionKey:              opt.Cfg.EncryptionKey,
+		WebhookBaseURL:             opt.Cfg.WebhookBaseURL,
+		DefaultRateLimit:           opt.Cfg.DefaultRateLimit,
+		WorkerCount:                opt.Cfg.WorkerCount,
+		EmailProvider:              opt.Cfg.EmailProvider,
+		EmailAPIKey:                opt.Cfg.EmailAPIKey,
+		EmailFromAddress:           opt.Cfg.EmailFromAddress,
+		EmailFromName:              opt.Cfg.EmailFromName,
+		EmailTrackOpens:            opt.Cfg.EmailTrackOpens,
+		EmailTrackClicks:           opt.Cfg.EmailTrackClicks,
+		SMSProvider:                opt.Cfg.SMSProvider,
+		SMSAPIKey:                  opt.Cfg.SMSAPIKey,
+		SMSSenderID:                opt.Cfg.SMSSenderID,
+		WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
+		WhatsAppMetaAppID:          opt.Cfg.WhatsAppMetaAppID,
+	})
 	templateSvc := services.NewTemplateService(tmplRepo, campaignRepo, providerRegistry)
 	campaignSvc := services.NewCampaignService(campaignRepo, tmplRepo, segmentRepo, msgQueue, suppressionSvc, unsubscribeSvc, contactRepo)
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
