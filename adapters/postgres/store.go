@@ -277,12 +277,12 @@ func (s *Store) GetConversationByID(ctx context.Context, tenantID, id uuid.UUID)
 func (s *Store) ListConversations(ctx context.Context, tenantID uuid.UUID, filter ports.ConversationFilter) ([]domain.Conversation, int, error) {
 	arg := gen.ListConversationsParams{
 		TenantID:        tenantID,
-		Channel:         derefString(fromStringPtr((*string)(filter.Channel))),
-		Status:          derefString(fromStringPtr((*string)(filter.Status))),
-		HandoffStatus:   derefString(fromStringPtr((*string)(filter.HandoffStatus))),
+		Channel:         fromStringPtr((*string)(filter.Channel)),
+		Status:          fromStringPtr((*string)(filter.Status)),
+		HandoffStatus:   fromStringPtr((*string)(filter.HandoffStatus)),
 		AssignedAgentID: fromUUIDPtr(filter.AssignedAgentID),
-		Recipient:       derefString(fromStringPtr(filter.Recipient)),
-		Tag:             derefString(fromStringPtr(filter.Tag)),
+		Recipient:       fromStringPtr(filter.Recipient),
+		Tag:             fromStringPtr(filter.Tag),
 		Limit:           int32(filter.PerPage),
 		Offset:          int32((filter.Page - 1) * filter.PerPage),
 	}
@@ -353,7 +353,7 @@ func (s *Store) AddConversationNote(ctx context.Context, tenantID, id uuid.UUID,
 		Column3:  note.ID.String(),
 		Column4:  note.AuthorID.String(),
 		Column5:  note.Body,
-		Column6:  fromTimePtr(&note.CreatedAt),
+		Column6:  note.CreatedAt,
 	})
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1404,4 +1404,189 @@ func (s *Store) BulkCheck(ctx context.Context, tenantID uuid.UUID, channel domai
 		Channel:  string(channel),
 		Column3:  recipients,
 	})
+}
+
+// WebhookRepository
+func (s *Store) CreateWebhookEndpoint(ctx context.Context, endpoint *domain.WebhookEndpoint) error {
+	row, err := s.q.CreateWebhookEndpoint(ctx, gen.CreateWebhookEndpointParams{
+		ID:       endpoint.ID,
+		TenantID: endpoint.TenantID,
+		Url:      endpoint.URL,
+		Secret:   endpoint.Secret,
+		Events:   fromWebhookEvents(endpoint.Events),
+		IsActive: endpoint.IsActive,
+	})
+	if err != nil {
+		return err
+	}
+	*endpoint = toWebhookEndpointDomain(row)
+	return nil
+}
+
+func (s *Store) GetWebhookEndpoint(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookEndpoint, error) {
+	row, err := s.q.GetWebhookEndpoint(ctx, gen.GetWebhookEndpointParams{TenantID: tenantID, ID: id})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	endpoint := toWebhookEndpointDomain(row)
+	return &endpoint, nil
+}
+
+func (s *Store) ListWebhookEndpoints(ctx context.Context, tenantID uuid.UUID, page, perPage int) ([]domain.WebhookEndpoint, int, error) {
+	rows, err := s.q.ListWebhookEndpoints(ctx, gen.ListWebhookEndpointsParams{
+		TenantID: tenantID,
+		Limit:    int32(perPage),
+		Offset:   int32(page * perPage),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	endpoints := make([]domain.WebhookEndpoint, 0, len(rows))
+	total := 0
+	for _, row := range rows {
+		endpoints = append(endpoints, toWebhookEndpointDomain(gen.MessagingWebhookEndpoint{
+			ID:           row.ID,
+			TenantID:     row.TenantID,
+			Url:          row.Url,
+			Secret:       row.Secret,
+			Events:       row.Events,
+			IsActive:     row.IsActive,
+			FailureCount: row.FailureCount,
+			DisabledAt:   row.DisabledAt,
+			CreatedAt:    row.CreatedAt,
+			UpdatedAt:    row.UpdatedAt,
+		}))
+		total = int(row.TotalCount)
+	}
+	return endpoints, total, nil
+}
+
+func (s *Store) UpdateWebhookEndpoint(ctx context.Context, endpoint *domain.WebhookEndpoint) error {
+	row, err := s.q.UpdateWebhookEndpoint(ctx, gen.UpdateWebhookEndpointParams{
+		TenantID: endpoint.TenantID,
+		ID:       endpoint.ID,
+		Url:      endpoint.URL,
+		Secret:   endpoint.Secret,
+		Events:   fromWebhookEvents(endpoint.Events),
+		IsActive: endpoint.IsActive,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return domain.ErrNotFound
+		}
+		return err
+	}
+	*endpoint = toWebhookEndpointDomain(row)
+	return nil
+}
+
+func (s *Store) DeleteWebhookEndpoint(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.q.DeleteWebhookEndpoint(ctx, gen.DeleteWebhookEndpointParams{TenantID: tenantID, ID: id})
+}
+
+func (s *Store) CreateWebhookDelivery(ctx context.Context, delivery *domain.WebhookDelivery) error {
+	row, err := s.q.CreateWebhookDelivery(ctx, gen.CreateWebhookDeliveryParams{
+		ID:           delivery.ID,
+		TenantID:     delivery.TenantID,
+		WebhookID:    delivery.WebhookID,
+		EventID:      delivery.EventID,
+		EventType:    string(delivery.EventType),
+		Payload:      delivery.Payload,
+		Status:       string(delivery.Status),
+		AttemptCount: int32(delivery.AttemptCount),
+	})
+	if err != nil {
+		return err
+	}
+	*delivery = toWebhookDeliveryDomain(row)
+	return nil
+}
+
+func (s *Store) GetWebhookDelivery(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookDelivery, error) {
+	row, err := s.q.GetWebhookDelivery(ctx, gen.GetWebhookDeliveryParams{TenantID: tenantID, ID: id})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	delivery := toWebhookDeliveryDomain(row)
+	return &delivery, nil
+}
+
+func (s *Store) ListWebhookDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID *uuid.UUID, page, perPage int) ([]domain.WebhookDelivery, int, error) {
+	rows, err := s.q.ListWebhookDeliveries(ctx, gen.ListWebhookDeliveriesParams{
+		TenantID:  tenantID,
+		WebhookID: fromUUIDPtr(webhookID),
+		Limit:     int32(perPage),
+		Offset:    int32(page * perPage),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	deliveries := make([]domain.WebhookDelivery, 0, len(rows))
+	total := 0
+	for _, row := range rows {
+		deliveries = append(deliveries, toWebhookDeliveryDomain(gen.MessagingWebhookDelivery{
+			ID:             row.ID,
+			TenantID:       row.TenantID,
+			WebhookID:      row.WebhookID,
+			EventID:        row.EventID,
+			EventType:      row.EventType,
+			Payload:        row.Payload,
+			Status:         row.Status,
+			AttemptCount:   row.AttemptCount,
+			NextAttemptAt:  row.NextAttemptAt,
+			LastAttemptAt:  row.LastAttemptAt,
+			ResponseStatus: row.ResponseStatus,
+			ResponseBody:   row.ResponseBody,
+			ErrorMessage:   row.ErrorMessage,
+			Signature:      row.Signature,
+			CreatedAt:      row.CreatedAt,
+			UpdatedAt:      row.UpdatedAt,
+		}))
+		total = int(row.TotalCount)
+	}
+	return deliveries, total, nil
+}
+
+func (s *Store) ListDueWebhookDeliveries(ctx context.Context, before time.Time, limit int) ([]domain.WebhookDelivery, error) {
+	rows, err := s.q.ListDueWebhookDeliveries(ctx, gen.ListDueWebhookDeliveriesParams{
+		NextAttemptAt: fromTimePtr(&before),
+		Limit:         int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	deliveries := make([]domain.WebhookDelivery, 0, len(rows))
+	for _, row := range rows {
+		deliveries = append(deliveries, toWebhookDeliveryDomain(row))
+	}
+	return deliveries, nil
+}
+
+func (s *Store) UpdateWebhookDelivery(ctx context.Context, delivery *domain.WebhookDelivery) error {
+	row, err := s.q.UpdateWebhookDelivery(ctx, gen.UpdateWebhookDeliveryParams{
+		TenantID:       delivery.TenantID,
+		ID:             delivery.ID,
+		Status:         string(delivery.Status),
+		AttemptCount:   int32(delivery.AttemptCount),
+		NextAttemptAt:  fromTimePtr(delivery.NextAttemptAt),
+		LastAttemptAt:  fromTimePtr(delivery.LastAttemptAt),
+		ResponseStatus: fromIntPtr(delivery.ResponseStatus),
+		ResponseBody:   fromStringPtr(delivery.ResponseBody),
+		ErrorMessage:   fromStringPtr(delivery.ErrorMessage),
+		Signature:      fromString(delivery.Signature),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return domain.ErrNotFound
+		}
+		return err
+	}
+	*delivery = toWebhookDeliveryDomain(row)
+	return nil
 }

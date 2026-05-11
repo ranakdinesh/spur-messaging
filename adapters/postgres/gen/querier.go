@@ -14,6 +14,7 @@ import (
 
 type Querier interface {
 	AddContactToSegment(ctx context.Context, arg AddContactToSegmentParams) error
+	AddConversationNote(ctx context.Context, arg AddConversationNoteParams) (MessagingConversation, error)
 	BulkCheckSuppression(ctx context.Context, arg BulkCheckSuppressionParams) ([]string, error)
 	BulkCreateContacts(ctx context.Context, arg []BulkCreateContactsParams) (int64, error)
 	CheckMessageExistsForCampaign(ctx context.Context, arg CheckMessageExistsForCampaignParams) (bool, error)
@@ -42,6 +43,9 @@ type Querier interface {
 	CreateTemplate(ctx context.Context, arg CreateTemplateParams) (MessagingTemplate, error)
 	// sql/queries/unsubscribes.sql
 	CreateUnsubscribe(ctx context.Context, arg CreateUnsubscribeParams) (MessagingUnsubscribe, error)
+	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (MessagingWebhookDelivery, error)
+	// sql/queries/webhooks.sql
+	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
 	DeleteCampaign(ctx context.Context, arg DeleteCampaignParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteEmailTemplate(ctx context.Context, arg DeleteEmailTemplateParams) error
@@ -50,17 +54,17 @@ type Querier interface {
 	DeleteSuppression(ctx context.Context, arg DeleteSuppressionParams) error
 	DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) error
 	DeleteUnsubscribe(ctx context.Context, arg DeleteUnsubscribeParams) error
+	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
 	ExistsByProviderEventID(ctx context.Context, providerEventID pgtype.Text) (bool, error)
-	AddConversationNote(ctx context.Context, arg AddConversationNoteParams) (MessagingConversation, error)
-	// sql/queries/conversations.sql
 	GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error)
-	GetConversationByID(ctx context.Context, arg GetConversationByIDParams) (MessagingConversation, error)
 	GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams) (MessagingCampaign, error)
 	GetCampaignStats(ctx context.Context, arg GetCampaignStatsParams) (json.RawMessage, error)
 	GetContactByEmail(ctx context.Context, arg GetContactByEmailParams) (MessagingContact, error)
 	GetContactByID(ctx context.Context, arg GetContactByIDParams) (MessagingContact, error)
 	GetContactByPhone(ctx context.Context, arg GetContactByPhoneParams) (MessagingContact, error)
 	GetContactsBySegment(ctx context.Context, arg GetContactsBySegmentParams) ([]GetContactsBySegmentRow, error)
+	// sql/queries/conversations.sql
+	GetConversationByID(ctx context.Context, arg GetConversationByIDParams) (MessagingConversation, error)
 	GetEmailCampaignStats(ctx context.Context, arg GetEmailCampaignStatsParams) (GetEmailCampaignStatsRow, error)
 	GetEmailEventsByCampaignID(ctx context.Context, arg GetEmailEventsByCampaignIDParams) ([]GetEmailEventsByCampaignIDRow, error)
 	GetEmailEventsByMessageID(ctx context.Context, arg GetEmailEventsByMessageIDParams) ([]MessagingEmailEvent, error)
@@ -82,12 +86,15 @@ type Querier interface {
 	GetTemplateByID(ctx context.Context, arg GetTemplateByIDParams) (MessagingTemplate, error)
 	GetTemplateByName(ctx context.Context, arg GetTemplateByNameParams) (MessagingTemplate, error)
 	GetUnsubscribesByEmail(ctx context.Context, arg GetUnsubscribesByEmailParams) ([]MessagingUnsubscribe, error)
+	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (MessagingWebhookDelivery, error)
+	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (MessagingWebhookEndpoint, error)
 	IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error)
 	IsUnsubscribed(ctx context.Context, arg IsUnsubscribedParams) (bool, error)
 	ListCampaigns(ctx context.Context, arg ListCampaignsParams) ([]ListCampaignsRow, error)
-	ListConversations(ctx context.Context, arg ListConversationsParams) ([]ListConversationsRow, error)
 	ListConsentRecords(ctx context.Context, arg ListConsentRecordsParams) ([]MessagingConsentRecord, error)
 	ListContacts(ctx context.Context, arg ListContactsParams) ([]ListContactsRow, error)
+	ListConversations(ctx context.Context, arg ListConversationsParams) ([]ListConversationsRow, error)
+	ListDueWebhookDeliveries(ctx context.Context, arg ListDueWebhookDeliveriesParams) ([]MessagingWebhookDelivery, error)
 	ListEmailTemplates(ctx context.Context, arg ListEmailTemplatesParams) ([]ListEmailTemplatesRow, error)
 	ListMessages(ctx context.Context, arg ListMessagesParams) ([]ListMessagesRow, error)
 	ListProviderConfigs(ctx context.Context, tenantID uuid.UUID) ([]MessagingProviderConfig, error)
@@ -95,13 +102,15 @@ type Querier interface {
 	ListSuppressions(ctx context.Context, arg ListSuppressionsParams) ([]ListSuppressionsRow, error)
 	ListTemplates(ctx context.Context, arg ListTemplatesParams) ([]ListTemplatesRow, error)
 	ListUnsubscribes(ctx context.Context, arg ListUnsubscribesParams) ([]ListUnsubscribesRow, error)
+	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]ListWebhookDeliveriesRow, error)
+	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]ListWebhookEndpointsRow, error)
 	RemoveContactFromSegment(ctx context.Context, arg RemoveContactFromSegmentParams) error
 	ResolveContacts(ctx context.Context, arg ResolveContactsParams) ([]ResolveContactsRow, error)
 	UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (MessagingCampaign, error)
 	UpdateCampaignStats(ctx context.Context, arg UpdateCampaignStatsParams) error
 	UpdateCampaignStatus(ctx context.Context, arg UpdateCampaignStatusParams) error
-	UpdateConversationInbox(ctx context.Context, arg UpdateConversationInboxParams) (MessagingConversation, error)
 	UpdateContact(ctx context.Context, arg UpdateContactParams) (MessagingContact, error)
+	UpdateConversationInbox(ctx context.Context, arg UpdateConversationInboxParams) (MessagingConversation, error)
 	UpdateEmailTemplate(ctx context.Context, arg UpdateEmailTemplateParams) (MessagingEmailTemplate, error)
 	UpdateMessageStatus(ctx context.Context, arg UpdateMessageStatusParams) error
 	UpdateMessageStatusByProviderID(ctx context.Context, arg UpdateMessageStatusByProviderIDParams) error
@@ -111,6 +120,8 @@ type Querier interface {
 	UpdateSegment(ctx context.Context, arg UpdateSegmentParams) (MessagingSegment, error)
 	UpdateTemplate(ctx context.Context, arg UpdateTemplateParams) (MessagingTemplate, error)
 	UpdateTemplateStatus(ctx context.Context, arg UpdateTemplateStatusParams) error
+	UpdateWebhookDelivery(ctx context.Context, arg UpdateWebhookDeliveryParams) (MessagingWebhookDelivery, error)
+	UpdateWebhookEndpoint(ctx context.Context, arg UpdateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
 	UpsertConversationInbound(ctx context.Context, arg UpsertConversationInboundParams) (MessagingConversation, error)
 	UpsertConversationOutbound(ctx context.Context, arg UpsertConversationOutboundParams) (MessagingConversation, error)
 }

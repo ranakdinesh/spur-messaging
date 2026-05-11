@@ -11,6 +11,7 @@ func RegisterRoutes(r chi.Router,
 	campH *CampaignHandler,
 	contactH *ContactHandler,
 	convH *ConversationHandler,
+	webhookH *TenantWebhookHandler,
 	segmentH *SegmentHandler,
 	provH *ProviderHandler,
 	unsubH *UnsubscribeHandler,
@@ -25,6 +26,16 @@ func RegisterRoutes(r chi.Router,
 		r.Put("/providers/{id}", provH.UpdateProvider)     // messaging:providers:write
 		r.Delete("/providers/{id}", provH.DeleteProvider)  // messaging:providers:write
 		r.Post("/providers/{id}/test", provH.TestProvider) // messaging:providers:test
+
+		// Tenant webhooks
+		r.Post("/webhooks", webhookH.CreateWebhook)                                 // messaging:webhooks:write
+		r.Get("/webhooks", webhookH.ListWebhooks)                                   // messaging:webhooks:read
+		r.Get("/webhooks/{id}", webhookH.GetWebhook)                                // messaging:webhooks:read
+		r.Patch("/webhooks/{id}", webhookH.UpdateWebhook)                           // messaging:webhooks:write
+		r.Delete("/webhooks/{id}", webhookH.DeleteWebhook)                          // messaging:webhooks:write
+		r.Post("/webhooks/{id}/test", webhookH.TestWebhook)                         // messaging:webhooks:test
+		r.Get("/webhooks/{id}/deliveries", webhookH.ListDeliveries)                 // messaging:webhooks:read
+		r.Post("/webhooks/deliveries/{deliveryID}/replay", webhookH.ReplayDelivery) // messaging:webhooks:replay
 
 		// Templates (WhatsApp)
 		r.Post("/templates", tmplH.CreateTemplate)                // messaging:templates:write

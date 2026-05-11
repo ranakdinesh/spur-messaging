@@ -8,15 +8,15 @@ WHERE tenant_id = $1
 -- name: ListConversations :many
 SELECT *, count(*) OVER() AS total_count
 FROM messaging.conversations
-WHERE tenant_id = $1
-  AND ($2 = '' OR channel = $2)
-  AND ($3 = '' OR status = $3)
-  AND ($4 = '' OR handoff_status = $4)
-  AND ($5::uuid IS NULL OR assigned_agent_id = $5)
-  AND ($6 = '' OR recipient ILIKE '%' || $6 || '%')
-  AND ($7 = '' OR $7 = ANY(tags))
+WHERE tenant_id = sqlc.arg('tenant_id')
+  AND (sqlc.narg('channel')::text IS NULL OR channel = sqlc.narg('channel')::text)
+  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
+  AND (sqlc.narg('handoff_status')::text IS NULL OR handoff_status = sqlc.narg('handoff_status')::text)
+  AND (sqlc.narg('assigned_agent_id')::uuid IS NULL OR assigned_agent_id = sqlc.narg('assigned_agent_id')::uuid)
+  AND (sqlc.narg('recipient')::text IS NULL OR recipient ILIKE '%' || sqlc.narg('recipient')::text || '%')
+  AND (sqlc.narg('tag')::text IS NULL OR sqlc.narg('tag')::text = ANY(tags))
 ORDER BY updated_at DESC
-LIMIT $8 OFFSET $9;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: GetActiveConversationByRecipient :one
 SELECT * FROM messaging.conversations
@@ -57,22 +57,22 @@ RETURNING *;
 
 -- name: UpdateConversationInbox :one
 UPDATE messaging.conversations
-SET status = COALESCE($3, status),
-    handoff_status = COALESCE($4, handoff_status),
-    assigned_agent_id = COALESCE($5, assigned_agent_id),
-    assigned_team = COALESCE($6, assigned_team),
-    priority = COALESCE($7, priority),
-    tags = COALESCE($8::text[], tags),
-    first_response_due_at = COALESCE($9, first_response_due_at),
-    resolution_due_at = COALESCE($10, resolution_due_at),
+SET status = COALESCE(sqlc.narg('status')::text, status),
+    handoff_status = COALESCE(sqlc.narg('handoff_status')::text, handoff_status),
+    assigned_agent_id = COALESCE(sqlc.narg('assigned_agent_id')::uuid, assigned_agent_id),
+    assigned_team = COALESCE(sqlc.narg('assigned_team')::text, assigned_team),
+    priority = COALESCE(sqlc.narg('priority')::text, priority),
+    tags = COALESCE(sqlc.narg('tags')::text[], tags),
+    first_response_due_at = COALESCE(sqlc.narg('first_response_due_at')::timestamptz, first_response_due_at),
+    resolution_due_at = COALESCE(sqlc.narg('resolution_due_at')::timestamptz, resolution_due_at),
     closed_at = CASE
-        WHEN $3 = 'closed' THEN COALESCE(closed_at, now())
-        WHEN $3 IN ('open', 'pending') THEN NULL
+        WHEN sqlc.narg('status')::text = 'closed' THEN COALESCE(closed_at, now())
+        WHEN sqlc.narg('status')::text IN ('open', 'pending') THEN NULL
         ELSE closed_at
     END,
     updated_at = now()
-WHERE tenant_id = $1
-  AND id = $2
+WHERE tenant_id = sqlc.arg('tenant_id')
+  AND id = sqlc.arg('id')
 RETURNING *;
 
 -- name: AddConversationNote :one

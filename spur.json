@@ -118,6 +118,22 @@
     {
       "key": "messaging:conversations:assign",
       "description": "Assign conversations to agents or teams."
+    },
+    {
+      "key": "messaging:webhooks:read",
+      "description": "Read tenant webhook endpoints and delivery logs."
+    },
+    {
+      "key": "messaging:webhooks:write",
+      "description": "Create, update, disable, and delete tenant webhook endpoints."
+    },
+    {
+      "key": "messaging:webhooks:test",
+      "description": "Send test events to tenant webhook endpoints."
+    },
+    {
+      "key": "messaging:webhooks:replay",
+      "description": "Replay tenant webhook deliveries."
     }
   ],
   "role_templates": [
@@ -147,7 +163,11 @@
         "messaging:messages:send_bulk",
         "messaging:conversations:read",
         "messaging:conversations:write",
-        "messaging:conversations:assign"
+        "messaging:conversations:assign",
+        "messaging:webhooks:read",
+        "messaging:webhooks:write",
+        "messaging:webhooks:test",
+        "messaging:webhooks:replay"
       ]
     },
     {
@@ -167,6 +187,10 @@
         "messaging:conversations:read",
         "messaging:conversations:write",
         "messaging:conversations:assign",
+        "messaging:webhooks:read",
+        "messaging:webhooks:write",
+        "messaging:webhooks:test",
+        "messaging:webhooks:replay",
         "messaging:analytics:read"
       ]
     },
@@ -188,7 +212,8 @@
         "messaging:campaigns:execute",
         "messaging:messages:read",
         "messaging:messages:send_bulk",
-        "messaging:conversations:read"
+        "messaging:conversations:read",
+        "messaging:webhooks:read"
       ]
     },
     {
@@ -216,7 +241,8 @@
         "messaging:segments:read",
         "messaging:campaigns:read",
         "messaging:messages:read",
-        "messaging:conversations:read"
+        "messaging:conversations:read",
+        "messaging:webhooks:read"
       ]
     }
   ],

@@ -7,14 +7,12 @@ package gen
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-const conversationColumns = `id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at`
 
 const addConversationNote = `-- name: AddConversationNote :one
 UPDATE messaging.conversations
@@ -31,12 +29,12 @@ RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_ag
 `
 
 type AddConversationNoteParams struct {
-	TenantID uuid.UUID          `json:"tenant_id"`
-	ID       uuid.UUID          `json:"id"`
-	Column3  string             `json:"column_3"`
-	Column4  string             `json:"column_4"`
-	Column5  string             `json:"column_5"`
-	Column6  pgtype.Timestamptz `json:"column_6"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	ID       uuid.UUID `json:"id"`
+	Column3  string    `json:"column_3"`
+	Column4  string    `json:"column_4"`
+	Column5  string    `json:"column_5"`
+	Column6  time.Time `json:"column_6"`
 }
 
 func (q *Queries) AddConversationNote(ctx context.Context, arg AddConversationNoteParams) (MessagingConversation, error) {
@@ -48,7 +46,29 @@ func (q *Queries) AddConversationNote(ctx context.Context, arg AddConversationNo
 		arg.Column5,
 		arg.Column6,
 	)
-	return scanMessagingConversation(row)
+	var i MessagingConversation
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
+		&i.Status,
+		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
+		&i.LastInboundAt,
+		&i.LastOutboundAt,
+		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getActiveConversationByRecipient = `-- name: GetActiveConversationByRecipient :one
@@ -75,10 +95,33 @@ func (q *Queries) GetActiveConversationByRecipient(ctx context.Context, arg GetA
 		arg.Recipient,
 		arg.ServiceWindowUntil,
 	)
-	return scanMessagingConversation(row)
+	var i MessagingConversation
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
+		&i.Status,
+		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
+		&i.LastInboundAt,
+		&i.LastOutboundAt,
+		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getConversationByID = `-- name: GetConversationByID :one
+
 SELECT id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at FROM messaging.conversations
 WHERE tenant_id = $1
   AND id = $2
@@ -89,35 +132,58 @@ type GetConversationByIDParams struct {
 	ID       uuid.UUID `json:"id"`
 }
 
+// sql/queries/conversations.sql
 func (q *Queries) GetConversationByID(ctx context.Context, arg GetConversationByIDParams) (MessagingConversation, error) {
 	row := q.db.QueryRow(ctx, getConversationByID, arg.TenantID, arg.ID)
-	return scanMessagingConversation(row)
+	var i MessagingConversation
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
+		&i.Status,
+		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
+		&i.LastInboundAt,
+		&i.LastOutboundAt,
+		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const listConversations = `-- name: ListConversations :many
 SELECT id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at, count(*) OVER() AS total_count
 FROM messaging.conversations
 WHERE tenant_id = $1
-  AND ($2 = '' OR channel = $2)
-  AND ($3 = '' OR status = $3)
-  AND ($4 = '' OR handoff_status = $4)
-  AND ($5::uuid IS NULL OR assigned_agent_id = $5)
-  AND ($6 = '' OR recipient ILIKE '%' || $6 || '%')
-  AND ($7 = '' OR $7 = ANY(tags))
+  AND ($2::text IS NULL OR channel = $2::text)
+  AND ($3::text IS NULL OR status = $3::text)
+  AND ($4::text IS NULL OR handoff_status = $4::text)
+  AND ($5::uuid IS NULL OR assigned_agent_id = $5::uuid)
+  AND ($6::text IS NULL OR recipient ILIKE '%' || $6::text || '%')
+  AND ($7::text IS NULL OR $7::text = ANY(tags))
 ORDER BY updated_at DESC
-LIMIT $8 OFFSET $9
+LIMIT $9 OFFSET $8
 `
 
 type ListConversationsParams struct {
 	TenantID        uuid.UUID   `json:"tenant_id"`
-	Channel         string      `json:"channel"`
-	Status          string      `json:"status"`
-	HandoffStatus   string      `json:"handoff_status"`
+	Channel         pgtype.Text `json:"channel"`
+	Status          pgtype.Text `json:"status"`
+	HandoffStatus   pgtype.Text `json:"handoff_status"`
 	AssignedAgentID pgtype.UUID `json:"assigned_agent_id"`
-	Recipient       string      `json:"recipient"`
-	Tag             string      `json:"tag"`
-	Limit           int32       `json:"limit"`
+	Recipient       pgtype.Text `json:"recipient"`
+	Tag             pgtype.Text `json:"tag"`
 	Offset          int32       `json:"offset"`
+	Limit           int32       `json:"limit"`
 }
 
 type ListConversationsRow struct {
@@ -131,7 +197,7 @@ type ListConversationsRow struct {
 	AssignedTeam       pgtype.Text        `json:"assigned_team"`
 	Priority           string             `json:"priority"`
 	Tags               []string           `json:"tags"`
-	InternalNotes      []byte             `json:"internal_notes"`
+	InternalNotes      json.RawMessage    `json:"internal_notes"`
 	LastInboundAt      pgtype.Timestamptz `json:"last_inbound_at"`
 	LastOutboundAt     pgtype.Timestamptz `json:"last_outbound_at"`
 	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
@@ -152,8 +218,8 @@ func (q *Queries) ListConversations(ctx context.Context, arg ListConversationsPa
 		arg.AssignedAgentID,
 		arg.Recipient,
 		arg.Tag,
-		arg.Limit,
 		arg.Offset,
+		arg.Limit,
 	)
 	if err != nil {
 		return nil, err
@@ -196,28 +262,26 @@ func (q *Queries) ListConversations(ctx context.Context, arg ListConversationsPa
 
 const updateConversationInbox = `-- name: UpdateConversationInbox :one
 UPDATE messaging.conversations
-SET status = COALESCE($3, status),
-    handoff_status = COALESCE($4, handoff_status),
-    assigned_agent_id = COALESCE($5, assigned_agent_id),
-    assigned_team = COALESCE($6, assigned_team),
-    priority = COALESCE($7, priority),
-    tags = COALESCE($8::text[], tags),
-    first_response_due_at = COALESCE($9, first_response_due_at),
-    resolution_due_at = COALESCE($10, resolution_due_at),
+SET status = COALESCE($1::text, status),
+    handoff_status = COALESCE($2::text, handoff_status),
+    assigned_agent_id = COALESCE($3::uuid, assigned_agent_id),
+    assigned_team = COALESCE($4::text, assigned_team),
+    priority = COALESCE($5::text, priority),
+    tags = COALESCE($6::text[], tags),
+    first_response_due_at = COALESCE($7::timestamptz, first_response_due_at),
+    resolution_due_at = COALESCE($8::timestamptz, resolution_due_at),
     closed_at = CASE
-        WHEN $3 = 'closed' THEN COALESCE(closed_at, now())
-        WHEN $3 IN ('open', 'pending') THEN NULL
+        WHEN $1::text = 'closed' THEN COALESCE(closed_at, now())
+        WHEN $1::text IN ('open', 'pending') THEN NULL
         ELSE closed_at
     END,
     updated_at = now()
-WHERE tenant_id = $1
-  AND id = $2
+WHERE tenant_id = $9
+  AND id = $10
 RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at
 `
 
 type UpdateConversationInboxParams struct {
-	TenantID           uuid.UUID          `json:"tenant_id"`
-	ID                 uuid.UUID          `json:"id"`
 	Status             pgtype.Text        `json:"status"`
 	HandoffStatus      pgtype.Text        `json:"handoff_status"`
 	AssignedAgentID    pgtype.UUID        `json:"assigned_agent_id"`
@@ -226,12 +290,12 @@ type UpdateConversationInboxParams struct {
 	Tags               []string           `json:"tags"`
 	FirstResponseDueAt pgtype.Timestamptz `json:"first_response_due_at"`
 	ResolutionDueAt    pgtype.Timestamptz `json:"resolution_due_at"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
+	ID                 uuid.UUID          `json:"id"`
 }
 
 func (q *Queries) UpdateConversationInbox(ctx context.Context, arg UpdateConversationInboxParams) (MessagingConversation, error) {
 	row := q.db.QueryRow(ctx, updateConversationInbox,
-		arg.TenantID,
-		arg.ID,
 		arg.Status,
 		arg.HandoffStatus,
 		arg.AssignedAgentID,
@@ -240,8 +304,32 @@ func (q *Queries) UpdateConversationInbox(ctx context.Context, arg UpdateConvers
 		arg.Tags,
 		arg.FirstResponseDueAt,
 		arg.ResolutionDueAt,
+		arg.TenantID,
+		arg.ID,
 	)
-	return scanMessagingConversation(row)
+	var i MessagingConversation
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
+		&i.Status,
+		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
+		&i.LastInboundAt,
+		&i.LastOutboundAt,
+		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertConversationInbound = `-- name: UpsertConversationInbound :one
@@ -276,7 +364,29 @@ func (q *Queries) UpsertConversationInbound(ctx context.Context, arg UpsertConve
 		arg.Recipient,
 		arg.LastInboundAt,
 	)
-	return scanMessagingConversation(row)
+	var i MessagingConversation
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
+		&i.Status,
+		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
+		&i.LastInboundAt,
+		&i.LastOutboundAt,
+		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertConversationOutbound = `-- name: UpsertConversationOutbound :one
@@ -305,10 +415,6 @@ func (q *Queries) UpsertConversationOutbound(ctx context.Context, arg UpsertConv
 		arg.Recipient,
 		arg.LastOutboundAt,
 	)
-	return scanMessagingConversation(row)
-}
-
-func scanMessagingConversation(row pgx.Row) (MessagingConversation, error) {
 	var i MessagingConversation
 	err := row.Scan(
 		&i.ID,

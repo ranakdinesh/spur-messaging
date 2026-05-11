@@ -32,4 +32,9 @@ const (
 	permConversationsRead   = msgpermissions.ConversationsRead
 	permConversationsWrite  = msgpermissions.ConversationsWrite
 	permConversationsAssign = msgpermissions.ConversationsAssign
+
+	permWebhooksRead   = msgpermissions.WebhooksRead
+	permWebhooksWrite  = msgpermissions.WebhooksWrite
+	permWebhooksTest   = msgpermissions.WebhooksTest
+	permWebhooksReplay = msgpermissions.WebhooksReplay
 )

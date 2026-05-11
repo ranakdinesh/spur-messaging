@@ -73,7 +73,7 @@ type MessagingConversation struct {
 	AssignedTeam       pgtype.Text        `json:"assigned_team"`
 	Priority           string             `json:"priority"`
 	Tags               []string           `json:"tags"`
-	InternalNotes      []byte             `json:"internal_notes"`
+	InternalNotes      json.RawMessage    `json:"internal_notes"`
 	LastInboundAt      pgtype.Timestamptz `json:"last_inbound_at"`
 	LastOutboundAt     pgtype.Timestamptz `json:"last_outbound_at"`
 	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
@@ -219,4 +219,36 @@ type MessagingUnsubscribe struct {
 	CampaignID pgtype.UUID `json:"campaign_id"`
 	Reason     string      `json:"reason"`
 	CreatedAt  time.Time   `json:"created_at"`
+}
+
+type MessagingWebhookDelivery struct {
+	ID             uuid.UUID          `json:"id"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
+	WebhookID      uuid.UUID          `json:"webhook_id"`
+	EventID        uuid.UUID          `json:"event_id"`
+	EventType      string             `json:"event_type"`
+	Payload        json.RawMessage    `json:"payload"`
+	Status         string             `json:"status"`
+	AttemptCount   int32              `json:"attempt_count"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	LastAttemptAt  pgtype.Timestamptz `json:"last_attempt_at"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	ResponseBody   pgtype.Text        `json:"response_body"`
+	ErrorMessage   pgtype.Text        `json:"error_message"`
+	Signature      pgtype.Text        `json:"signature"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+}
+
+type MessagingWebhookEndpoint struct {
+	ID           uuid.UUID          `json:"id"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
+	Url          string             `json:"url"`
+	Secret       string             `json:"secret"`
+	Events       []string           `json:"events"`
+	IsActive     bool               `json:"is_active"`
+	FailureCount int32              `json:"failure_count"`
+	DisabledAt   pgtype.Timestamptz `json:"disabled_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
 }

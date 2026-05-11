@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -154,6 +155,32 @@ type ConsentEvidence struct {
 type WebhookService interface {
 	HandleWhatsAppWebhook(ctx context.Context, headers http.Header, body []byte) error
 	VerifyWhatsAppWebhook(ctx context.Context, mode, token, challenge string) (string, error)
+}
+
+type TenantWebhookService interface {
+	CreateEndpoint(ctx context.Context, tenantID uuid.UUID, req CreateWebhookEndpointRequest) (*domain.WebhookEndpoint, error)
+	GetEndpoint(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookEndpoint, error)
+	ListEndpoints(ctx context.Context, tenantID uuid.UUID, page, perPage int) ([]domain.WebhookEndpoint, int, error)
+	UpdateEndpoint(ctx context.Context, tenantID, id uuid.UUID, req UpdateWebhookEndpointRequest) (*domain.WebhookEndpoint, error)
+	DeleteEndpoint(ctx context.Context, tenantID, id uuid.UUID) error
+	ListDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID *uuid.UUID, page, perPage int) ([]domain.WebhookDelivery, int, error)
+	TestEndpoint(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookDelivery, error)
+	ReplayDelivery(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookDelivery, error)
+	DeliverEvent(ctx context.Context, tenantID uuid.UUID, eventType domain.WebhookEventType, payload json.RawMessage) ([]domain.WebhookDelivery, error)
+	ProcessDueDeliveries(ctx context.Context, limit int) error
+}
+
+type CreateWebhookEndpointRequest struct {
+	URL    string                    `json:"url"`
+	Events []domain.WebhookEventType `json:"events"`
+	Secret string                    `json:"secret"`
+}
+
+type UpdateWebhookEndpointRequest struct {
+	URL      *string                    `json:"url"`
+	Events   *[]domain.WebhookEventType `json:"events"`
+	Secret   *string                    `json:"secret"`
+	IsActive *bool                      `json:"is_active"`
 }
 
 type EmailTemplateService interface {

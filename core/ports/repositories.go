@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -168,4 +169,26 @@ type SuppressionRepository interface {
 	List(ctx context.Context, tenantID uuid.UUID, reason *domain.SuppressionReason, page, perPage int) ([]domain.SuppressionEntry, int, error)
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error // remove from suppression (admin only)
 	BulkCheck(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipients []string) ([]string, error)
+}
+
+type WebhookRepository interface {
+	CreateWebhookEndpoint(ctx context.Context, endpoint *domain.WebhookEndpoint) error
+	GetWebhookEndpoint(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookEndpoint, error)
+	ListWebhookEndpoints(ctx context.Context, tenantID uuid.UUID, page, perPage int) ([]domain.WebhookEndpoint, int, error)
+	UpdateWebhookEndpoint(ctx context.Context, endpoint *domain.WebhookEndpoint) error
+	DeleteWebhookEndpoint(ctx context.Context, tenantID, id uuid.UUID) error
+	CreateWebhookDelivery(ctx context.Context, delivery *domain.WebhookDelivery) error
+	GetWebhookDelivery(ctx context.Context, tenantID, id uuid.UUID) (*domain.WebhookDelivery, error)
+	ListWebhookDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID *uuid.UUID, page, perPage int) ([]domain.WebhookDelivery, int, error)
+	ListDueWebhookDeliveries(ctx context.Context, before time.Time, limit int) ([]domain.WebhookDelivery, error)
+	UpdateWebhookDelivery(ctx context.Context, delivery *domain.WebhookDelivery) error
+}
+
+type WebhookEventPayload struct {
+	EventID    uuid.UUID               `json:"event_id"`
+	EventType  domain.WebhookEventType `json:"event_type"`
+	TenantID   uuid.UUID               `json:"tenant_id"`
+	Data       map[string]any          `json:"data"`
+	OccurredAt time.Time               `json:"occurred_at"`
+	Raw        json.RawMessage         `json:"-"`
 }

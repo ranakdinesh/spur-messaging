@@ -29,6 +29,7 @@ type WebhookService struct {
 	unsubscribeSvc   ports.UnsubscribeService
 	providerRegistry *ProviderRegistry
 	configRepo       ports.ProviderConfigRepository
+	tenantWebhooks   ports.TenantWebhookService
 	log              Logger
 }
 
@@ -40,6 +41,7 @@ func NewWebhookService(
 	unsubscribeSvc ports.UnsubscribeService,
 	providerRegistry *ProviderRegistry,
 	configRepo ports.ProviderConfigRepository,
+	tenantWebhooks ports.TenantWebhookService,
 	log Logger,
 ) *WebhookService {
 	return &WebhookService{
@@ -50,6 +52,7 @@ func NewWebhookService(
 		unsubscribeSvc:   unsubscribeSvc,
 		providerRegistry: providerRegistry,
 		configRepo:       configRepo,
+		tenantWebhooks:   tenantWebhooks,
 		log:              log,
 	}
 }
@@ -99,6 +102,7 @@ func (s *WebhookService) processWhatsAppStatus(ctx context.Context, tenantID uui
 	}
 
 	// Section 10A.3: Never downgrade status
+	var current *domain.Message
 	current, err := s.messageRepo.GetByProviderID(ctx, status.ID)
 	if err == nil {
 		if domain.MessageStatusRank(domainStatus) <= domain.MessageStatusRank(current.Status) {
@@ -110,6 +114,11 @@ func (s *WebhookService) processWhatsAppStatus(ctx context.Context, tenantID uui
 	err = s.messageRepo.UpdateStatusByProviderID(ctx, status.ID, domainStatus, timestamp)
 	if err != nil {
 		s.log.Error("failed to update whatsapp status", "error", err, "provider_msg_id", status.ID)
+		return
+	}
+	if current != nil {
+		current.Status = domainStatus
+		s.deliverMessageEvent(ctx, tenantID, webhookEventForMessageStatus(domainStatus), current, timestamp)
 	}
 }
 
@@ -151,7 +160,9 @@ func (s *WebhookService) processWhatsAppIncoming(ctx context.Context, tenantID u
 	err := s.messageRepo.Create(ctx, inbound)
 	if err != nil {
 		s.log.Error("failed to create inbound whatsapp message", "error", err)
+		return
 	}
+	s.deliverMessageEvent(ctx, tenantID, domain.WebhookEventMessageReplied, inbound, timestamp)
 }
 
 func mapWhatsAppStatus(s string) domain.MessageStatus {
@@ -255,6 +266,9 @@ func (s *WebhookService) processEmailEvent(ctx context.Context, event ports.Webh
 			err = s.messageRepo.UpdateStatusByProviderID(ctx, event.ProviderMessageID, *event.Status, event.Timestamp)
 			if err != nil {
 				s.log.Error("failed to update message status from email event", "error", err)
+			} else {
+				msg.Status = *event.Status
+				s.deliverMessageEvent(ctx, msg.TenantID, webhookEventForMessageStatus(*event.Status), msg, event.Timestamp)
 			}
 		}
 	}
@@ -289,6 +303,64 @@ func (s *WebhookService) processEmailEvent(ctx context.Context, event ports.Webh
 			s.log.Error("failed to auto-unsubscribe email", "error", err, "email", event.Email)
 		}
 	}
+}
+
+func (s *WebhookService) deliverMessageEvent(ctx context.Context, tenantID uuid.UUID, eventType domain.WebhookEventType, msg *domain.Message, occurredAt time.Time) {
+	if s.tenantWebhooks == nil || !domain.IsValidWebhookEvent(eventType) {
+		return
+	}
+	payload, err := json.Marshal(map[string]any{
+		"event_id":    uuid.New().String(),
+		"event_type":  string(eventType),
+		"tenant_id":   tenantID.String(),
+		"occurred_at": occurredAt.UTC().Format(time.RFC3339Nano),
+		"data": map[string]any{
+			"message_id":          msg.ID.String(),
+			"provider_message_id": msg.ProviderMessageID,
+			"campaign_id":         uuidPtrString(msg.CampaignID),
+			"conversation_id":     uuidPtrString(msg.ConversationID),
+			"channel":             string(msg.Channel),
+			"recipient":           msg.Recipient,
+			"sender":              msg.Sender,
+			"direction":           msg.Direction,
+			"status":              string(msg.Status),
+		},
+	})
+	if err != nil {
+		s.log.Warn("failed to build tenant webhook payload", "error", err, "message_id", msg.ID)
+		return
+	}
+	if _, err := s.tenantWebhooks.DeliverEvent(ctx, tenantID, eventType, payload); err != nil {
+		s.log.Warn("failed to deliver tenant webhook event", "error", err, "event_type", eventType, "message_id", msg.ID)
+	}
+}
+
+func webhookEventForMessageStatus(status domain.MessageStatus) domain.WebhookEventType {
+	switch status {
+	case domain.MessageStatusSent:
+		return domain.WebhookEventMessageSent
+	case domain.MessageStatusDelivered:
+		return domain.WebhookEventMessageDelivered
+	case domain.MessageStatusRead:
+		return domain.WebhookEventMessageRead
+	case domain.MessageStatusOpened:
+		return domain.WebhookEventMessageOpened
+	case domain.MessageStatusClicked:
+		return domain.WebhookEventMessageClicked
+	case domain.MessageStatusFailed, domain.MessageStatusExpired, domain.MessageStatusCancelled, domain.MessageStatusSuppressed:
+		return domain.WebhookEventMessageFailed
+	case domain.MessageStatusReplied:
+		return domain.WebhookEventMessageReplied
+	default:
+		return domain.WebhookEventMessageCreated
+	}
+}
+
+func uuidPtrString(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
 }
 
 func (s *WebhookService) handleSoftBounce(ctx context.Context, tenantID uuid.UUID, email string) {

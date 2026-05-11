@@ -297,6 +297,58 @@ func toSuppressionEntryDomain(s gen.MessagingSuppression) domain.SuppressionEntr
 	}
 }
 
+func toWebhookEndpointDomain(w gen.MessagingWebhookEndpoint) domain.WebhookEndpoint {
+	return domain.WebhookEndpoint{
+		ID:           w.ID,
+		TenantID:     w.TenantID,
+		URL:          w.Url,
+		Secret:       w.Secret,
+		Events:       toWebhookEvents(w.Events),
+		IsActive:     w.IsActive,
+		FailureCount: int(w.FailureCount),
+		DisabledAt:   pgTimestamptzToPtr(w.DisabledAt),
+		CreatedAt:    w.CreatedAt,
+		UpdatedAt:    w.UpdatedAt,
+	}
+}
+
+func toWebhookDeliveryDomain(w gen.MessagingWebhookDelivery) domain.WebhookDelivery {
+	return domain.WebhookDelivery{
+		ID:             w.ID,
+		TenantID:       w.TenantID,
+		WebhookID:      w.WebhookID,
+		EventID:        w.EventID,
+		EventType:      domain.WebhookEventType(w.EventType),
+		Payload:        w.Payload,
+		Status:         domain.WebhookDeliveryStatus(w.Status),
+		AttemptCount:   int(w.AttemptCount),
+		NextAttemptAt:  pgTimestamptzToPtr(w.NextAttemptAt),
+		LastAttemptAt:  pgTimestamptzToPtr(w.LastAttemptAt),
+		ResponseStatus: pgInt4ToPtr(w.ResponseStatus),
+		ResponseBody:   pgTextToStringPtr(w.ResponseBody),
+		ErrorMessage:   pgTextToStringPtr(w.ErrorMessage),
+		Signature:      pgTextToString(w.Signature),
+		CreatedAt:      w.CreatedAt,
+		UpdatedAt:      w.UpdatedAt,
+	}
+}
+
+func toWebhookEvents(events []string) []domain.WebhookEventType {
+	res := make([]domain.WebhookEventType, 0, len(events))
+	for _, event := range events {
+		res = append(res, domain.WebhookEventType(event))
+	}
+	return res
+}
+
+func fromWebhookEvents(events []domain.WebhookEventType) []string {
+	res := make([]string, 0, len(events))
+	for _, event := range events {
+		res = append(res, string(event))
+	}
+	return res
+}
+
 // PG Helper functions
 func pgUUIDToPtr(u pgtype.UUID) *uuid.UUID {
 	if !u.Valid {
@@ -336,6 +388,14 @@ func pgTimestamptzToPtr(t pgtype.Timestamptz) *time.Time {
 	return &res
 }
 
+func pgInt4ToPtr(i pgtype.Int4) *int {
+	if !i.Valid {
+		return nil
+	}
+	res := int(i.Int32)
+	return &res
+}
+
 func fromUUIDPtr(u *uuid.UUID) pgtype.UUID {
 	if u == nil {
 		return pgtype.UUID{Valid: false}
@@ -366,6 +426,13 @@ func fromTimePtr(t *time.Time) pgtype.Timestamptz {
 
 func fromUUID(u uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: u, Valid: true}
+}
+
+func fromIntPtr(i *int) pgtype.Int4 {
+	if i == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{Int32: int32(*i), Valid: true}
 }
 
 func toMessageCreateSQLC(m *domain.Message) gen.CreateMessageParams {

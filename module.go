@@ -95,6 +95,7 @@ type Services struct {
 	UnsubscribeService    ports.UnsubscribeService
 	SuppressionService    ports.SuppressionService
 	ConversationService   ports.ConversationService
+	TenantWebhookService  ports.TenantWebhookService
 }
 
 // Module is the messaging module instance
@@ -108,6 +109,7 @@ type Module struct {
 		campaign      *http.CampaignHandler
 		contact       *http.ContactHandler
 		conversation  *http.ConversationHandler
+		webhook       *http.TenantWebhookHandler
 		segment       *http.SegmentHandler
 		provider      *http.ProviderHandler
 		unsubscribe   *http.UnsubscribeHandler
@@ -180,7 +182,8 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailAnalyticsSvc := services.NewEmailAnalyticsService(emailEventRepo)
 	emailSenderSvc := services.NewEmailSender(messageSvc)
 	conversationSvc := services.NewConversationService(store)
-	webhookSvc := services.NewWebhookService(msgRepo, store, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, log)
+	tenantWebhookSvc := services.NewTenantWebhookService(store, nil, log)
+	webhookSvc := services.NewWebhookService(msgRepo, store, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, tenantWebhookSvc, log)
 
 	// 7. Create handlers
 	m := &Module{
@@ -195,6 +198,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 			UnsubscribeService:    unsubscribeSvc,
 			SuppressionService:    suppressionSvc,
 			ConversationService:   conversationSvc,
+			TenantWebhookService:  tenantWebhookSvc,
 		},
 		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
 			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
@@ -207,6 +211,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.handlers.campaign = http.NewCampaignHandler(campaignSvc)
 	m.handlers.contact = http.NewContactHandler(contactSvc)
 	m.handlers.conversation = http.NewConversationHandler(conversationSvc)
+	m.handlers.webhook = http.NewTenantWebhookHandler(tenantWebhookSvc)
 	m.handlers.segment = http.NewSegmentHandler(segmentServiceAdapter{store})
 	m.handlers.provider = http.NewProviderHandler(providerConfigRepo, messageSvc)
 	m.handlers.unsubscribe = http.NewUnsubscribeHandler(unsubscribeSvc)
@@ -233,6 +238,21 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	templateSync := worker.NewTemplateSync(tmplRepo, providerRegistry)
 	go templateSync.Start(ctx)
 
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := tenantWebhookSvc.ProcessDueDeliveries(ctx, 100); err != nil {
+					log.Warn("tenant webhook retry worker failed", "error", err)
+				}
+			}
+		}
+	}()
+
 	return m, nil
 }
 
@@ -252,6 +272,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		m.handlers.campaign,
 		m.handlers.contact,
 		m.handlers.conversation,
+		m.handlers.webhook,
 		m.handlers.segment,
 		m.handlers.provider,
 		m.handlers.unsubscribe,

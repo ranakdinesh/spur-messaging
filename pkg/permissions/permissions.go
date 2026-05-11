@@ -35,6 +35,11 @@ const (
 	ConversationsRead   = "messaging:conversations:read"
 	ConversationsWrite  = "messaging:conversations:write"
 	ConversationsAssign = "messaging:conversations:assign"
+
+	WebhooksRead   = "messaging:webhooks:read"
+	WebhooksWrite  = "messaging:webhooks:write"
+	WebhooksTest   = "messaging:webhooks:test"
+	WebhooksReplay = "messaging:webhooks:replay"
 )
 
 // Permission describes a permission that can be synced into Identity.
@@ -76,6 +81,10 @@ var Catalog = []Permission{
 	{Key: ConversationsRead, Description: "Read conversation inbox threads, notes, assignment, and SLA state."},
 	{Key: ConversationsWrite, Description: "Update conversation status, handoff state, tags, notes, priority, and SLA fields."},
 	{Key: ConversationsAssign, Description: "Assign conversations to agents or teams."},
+	{Key: WebhooksRead, Description: "Read tenant webhook endpoints and delivery logs."},
+	{Key: WebhooksWrite, Description: "Create, update, disable, and delete tenant webhook endpoints."},
+	{Key: WebhooksTest, Description: "Send test events to tenant webhook endpoints."},
+	{Key: WebhooksReplay, Description: "Replay tenant webhook deliveries."},
 }
 
 // RoleTemplates groups the messaging permissions into practical tenant roles.
@@ -104,6 +113,10 @@ var RoleTemplates = []RoleTemplate{
 			ConversationsRead,
 			ConversationsWrite,
 			ConversationsAssign,
+			WebhooksRead,
+			WebhooksWrite,
+			WebhooksTest,
+			WebhooksReplay,
 			AnalyticsRead,
 		},
 	},
@@ -126,6 +139,7 @@ var RoleTemplates = []RoleTemplate{
 			MessagesRead,
 			MessagesSendBulk,
 			ConversationsRead,
+			WebhooksRead,
 		},
 	},
 	{
@@ -154,6 +168,7 @@ var RoleTemplates = []RoleTemplate{
 			CampaignsRead,
 			MessagesRead,
 			ConversationsRead,
+			WebhooksRead,
 		},
 	},
 }
