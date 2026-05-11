@@ -108,14 +108,104 @@
       "description": "Send bulk messages."
     }
   ],
+  "role_templates": [
+    {
+      "code": "messaging_admin",
+      "name": "Messaging Admin",
+      "description": "Manage messaging providers, templates, contacts, campaigns, sends, and analytics.",
+      "permissions": [
+        "messaging:analytics:read",
+        "messaging:providers:read",
+        "messaging:providers:write",
+        "messaging:providers:test",
+        "messaging:templates:read",
+        "messaging:templates:write",
+        "messaging:templates:submit",
+        "messaging:contacts:read",
+        "messaging:contacts:write",
+        "messaging:contacts:import",
+        "messaging:contacts:manage_consent",
+        "messaging:segments:read",
+        "messaging:segments:write",
+        "messaging:campaigns:read",
+        "messaging:campaigns:write",
+        "messaging:campaigns:execute",
+        "messaging:messages:read",
+        "messaging:messages:send",
+        "messaging:messages:send_bulk"
+      ]
+    },
+    {
+      "code": "messaging_developer",
+      "name": "Messaging Developer",
+      "description": "Configure providers, manage templates, send test messages, and read delivery logs.",
+      "permissions": [
+        "messaging:providers:read",
+        "messaging:providers:write",
+        "messaging:providers:test",
+        "messaging:templates:read",
+        "messaging:templates:write",
+        "messaging:templates:submit",
+        "messaging:contacts:read",
+        "messaging:messages:read",
+        "messaging:messages:send",
+        "messaging:analytics:read"
+      ]
+    },
+    {
+      "code": "messaging_campaign_manager",
+      "name": "Campaign Manager",
+      "description": "Build audiences, manage consent, launch campaigns, and read campaign analytics.",
+      "permissions": [
+        "messaging:analytics:read",
+        "messaging:templates:read",
+        "messaging:contacts:read",
+        "messaging:contacts:write",
+        "messaging:contacts:import",
+        "messaging:contacts:manage_consent",
+        "messaging:segments:read",
+        "messaging:segments:write",
+        "messaging:campaigns:read",
+        "messaging:campaigns:write",
+        "messaging:campaigns:execute",
+        "messaging:messages:read",
+        "messaging:messages:send_bulk"
+      ]
+    },
+    {
+      "code": "messaging_support_agent",
+      "name": "Support Agent",
+      "description": "Read contacts and message history, send replies, and review basic analytics.",
+      "permissions": [
+        "messaging:analytics:read",
+        "messaging:contacts:read",
+        "messaging:messages:read",
+        "messaging:messages:send"
+      ]
+    },
+    {
+      "code": "messaging_read_only",
+      "name": "Messaging Read Only",
+      "description": "View messaging configuration, templates, contacts, campaigns, messages, and analytics.",
+      "permissions": [
+        "messaging:analytics:read",
+        "messaging:providers:read",
+        "messaging:templates:read",
+        "messaging:contacts:read",
+        "messaging:segments:read",
+        "messaging:campaigns:read",
+        "messaging:messages:read"
+      ]
+    }
+  ],
   "has_sqlc": true,
   "config_struct": "MessagingConfig",
   "config_env_prefix": "MESSAGING_",
   "app_field": "Messaging *messaging.Module",
   "app_value": "Messaging: messagingModule,",
   "wire_code": {
-    "import": "\"encoding/hex\"\n\t\"strconv\"\n\tmessaging \"github.com/ranakdinesh/spur-messaging\"",
-    "init": "encKey, err := hex.DecodeString(cfg.MessagingEncryptionKey)\nif err != nil { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 64-char hex: %w\", err) }\nif len(encKey) != 32 { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 32 bytes (64 hex chars)\") }\nrateLimit := 10\nif cfg.MessagingDefaultRateLimit != \"\" { rateLimit, _ = strconv.Atoi(cfg.MessagingDefaultRateLimit) }\nworkerCount := 5\nif cfg.MessagingWorkerCount != \"\" { workerCount, _ = strconv.Atoi(cfg.MessagingWorkerCount) }\nemailProvider := cfg.MessagingEmailProvider\nif emailProvider == \"\" { emailProvider = \"sendgrid\" }\nvar emailAPIKey string\nswitch emailProvider {\ncase \"sendgrid\": emailAPIKey = cfg.SendGridAPIKey\ncase \"mailgun\": emailAPIKey = cfg.MailgunAPIKey\ncase \"postmark\": emailAPIKey = cfg.PostmarkServerToken\n}\nsmsProvider := cfg.MessagingSMSProvider\nif smsProvider == \"\" { smsProvider = \"msg91\" }\nvar smsAPIKey string\nswitch smsProvider {\ncase \"msg91\": smsAPIKey = cfg.MSG91AuthKey\ncase \"twilio\": smsAPIKey = cfg.TwilioAccountSID\n}\nemailFrom := cfg.MessagingEmailFromAddr\nif emailFrom == \"\" { emailFrom = \"noreply@example.com\" }\nemailName := cfg.MessagingEmailFromName\nif emailName == \"\" { emailName = \"Spur\" }\nsmsSender := cfg.MessagingSMSSenderID\nif smsSender == \"\" { smsSender = \"SPUR\" }\nmessagingCfg := messaging.Config{EncryptionKey: encKey, WebhookBaseURL: cfg.MessagingWebhookBaseURL, DefaultRateLimit: rateLimit, WorkerCount: workerCount, EmailProvider: emailProvider, EmailAPIKey: emailAPIKey, EmailFromAddress: emailFrom, EmailFromName: emailName, EmailTrackOpens: cfg.MessagingEmailTrackOpens != \"false\", EmailTrackClicks: cfg.MessagingEmailTrackClicks != \"false\", SMSProvider: smsProvider, SMSAPIKey: smsAPIKey, SMSSenderID: smsSender, WhatsAppWebhookVerifyToken: cfg.WhatsAppWebhookVerifyToken, WhatsAppMetaAppID: cfg.WhatsAppMetaAppID}\nmessagingLog := infra.Log.Logger()\nmessagingModule, err := messaging.New(ctx, messaging.Options{DB: infra.DB, Log: &messagingLog, Cfg: messagingCfg, Redis: infra.Redis})\nif err != nil { return nil, fmt.Errorf(\"messaging: %w\", err) }",
+    "import": "\"encoding/hex\"\n\t\"strconv\"\n\tidentitydomain \"github.com/ranakdinesh/spur-identity/core/domain\"\n\tmessaging \"github.com/ranakdinesh/spur-messaging\"\n\tmsgpermissions \"github.com/ranakdinesh/spur-messaging/pkg/permissions\"",
+    "init": "encKey, err := hex.DecodeString(cfg.MessagingEncryptionKey)\nif err != nil { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 64-char hex: %w\", err) }\nif len(encKey) != 32 { return nil, fmt.Errorf(\"MESSAGING_ENCRYPTION_KEY must be 32 bytes (64 hex chars)\") }\nrateLimit := 10\nif cfg.MessagingDefaultRateLimit != \"\" { rateLimit, _ = strconv.Atoi(cfg.MessagingDefaultRateLimit) }\nworkerCount := 5\nif cfg.MessagingWorkerCount != \"\" { workerCount, _ = strconv.Atoi(cfg.MessagingWorkerCount) }\nemailProvider := cfg.MessagingEmailProvider\nif emailProvider == \"\" { emailProvider = \"sendgrid\" }\nvar emailAPIKey string\nswitch emailProvider {\ncase \"sendgrid\": emailAPIKey = cfg.SendGridAPIKey\ncase \"mailgun\": emailAPIKey = cfg.MailgunAPIKey\ncase \"postmark\": emailAPIKey = cfg.PostmarkServerToken\n}\nsmsProvider := cfg.MessagingSMSProvider\nif smsProvider == \"\" { smsProvider = \"msg91\" }\nvar smsAPIKey string\nswitch smsProvider {\ncase \"msg91\": smsAPIKey = cfg.MSG91AuthKey\ncase \"twilio\": smsAPIKey = cfg.TwilioAccountSID\n}\nemailFrom := cfg.MessagingEmailFromAddr\nif emailFrom == \"\" { emailFrom = \"noreply@example.com\" }\nemailName := cfg.MessagingEmailFromName\nif emailName == \"\" { emailName = \"Spur\" }\nsmsSender := cfg.MessagingSMSSenderID\nif smsSender == \"\" { smsSender = \"SPUR\" }\nmessagingCfg := messaging.Config{EncryptionKey: encKey, WebhookBaseURL: cfg.MessagingWebhookBaseURL, DefaultRateLimit: rateLimit, WorkerCount: workerCount, EmailProvider: emailProvider, EmailAPIKey: emailAPIKey, EmailFromAddress: emailFrom, EmailFromName: emailName, EmailTrackOpens: cfg.MessagingEmailTrackOpens != \"false\", EmailTrackClicks: cfg.MessagingEmailTrackClicks != \"false\", SMSProvider: smsProvider, SMSAPIKey: smsAPIKey, SMSSenderID: smsSender, WhatsAppWebhookVerifyToken: cfg.WhatsAppWebhookVerifyToken, WhatsAppMetaAppID: cfg.WhatsAppMetaAppID}\nmessagingLog := infra.Log.Logger()\nmessagingModule, err := messaging.New(ctx, messaging.Options{DB: infra.DB, Log: &messagingLog, Cfg: messagingCfg, Redis: infra.Redis})\nif err != nil { return nil, fmt.Errorf(\"messaging: %w\", err) }\nmessagingPermissions := make([]identitydomain.ManifestPermission, 0, len(msgpermissions.Catalog))\nfor _, permission := range msgpermissions.Catalog { messagingPermissions = append(messagingPermissions, identitydomain.ManifestPermission{Slug: permission.Key, Description: permission.Description}) }\nmessagingRoleTemplates := make([]identitydomain.ManifestRoleTemplate, 0, len(msgpermissions.RoleTemplates))\nfor _, template := range msgpermissions.RoleTemplates { messagingRoleTemplates = append(messagingRoleTemplates, identitydomain.ManifestRoleTemplate{Code: template.Code, Name: template.Name, Description: template.Description, Permissions: append([]string(nil), template.Permissions...)}) }\nif err := identityModule.Services.ModuleService.RegisterManifest(ctx, identitydomain.Manifest{Name: \"Messaging\", Code: msgpermissions.ModuleCode, Description: \"Messaging channels, templates, contacts, campaigns, delivery reports, and analytics.\", Permissions: messagingPermissions, RoleTemplates: messagingRoleTemplates}); err != nil { return nil, fmt.Errorf(\"register messaging manifest: %w\", err) }",
     "routes": "r.Route(\"/messaging\", func(r chi.Router) {\n\tr.Use(identityModule.AuthMiddleware())\n\tr.Use(identityModule.TenantIsolation())\n\tmessagingModule.RegisterRoutes(r)\n})\nr.Get(\"/messaging/webhook/whatsapp\", messagingModule.WebhookHandler.Verify)\nr.Post(\"/messaging/webhook/whatsapp\", messagingModule.WebhookHandler.Handle)\nr.Post(\"/messaging/webhook/email/sendgrid\", messagingModule.WebhookHandler.HandleSendGrid)\nr.Post(\"/messaging/webhook/email/mailgun\", messagingModule.WebhookHandler.HandleMailgun)\nr.Post(\"/messaging/webhook/email/postmark\", messagingModule.WebhookHandler.HandlePostmark)\nr.Post(\"/messaging/webhook/sms\", messagingModule.WebhookHandler.HandleSMS)\nr.Get(\"/messaging/unsubscribe/{token}\", messagingModule.WebhookHandler.HandleUnsubscribeLink)"
   }
 }

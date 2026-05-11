@@ -39,6 +39,15 @@ type Permission struct {
 	Description string `json:"description"`
 }
 
+// RoleTemplate describes a default tenant role that Identity can instantiate
+// from the messaging module manifest.
+type RoleTemplate struct {
+	Code        string   `json:"code"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+}
+
 // Catalog is the complete permission list for this module.
 var Catalog = []Permission{
 	{Key: AnalyticsRead, Description: "Read messaging dashboards, campaign reports, and delivery analytics."},
@@ -60,6 +69,79 @@ var Catalog = []Permission{
 	{Key: MessagesRead, Description: "Read message delivery logs."},
 	{Key: MessagesSend, Description: "Send individual messages and test sends."},
 	{Key: MessagesSendBulk, Description: "Send bulk messages."},
+}
+
+// RoleTemplates groups the messaging permissions into practical tenant roles.
+// The same permission keys are used as API key scopes.
+var RoleTemplates = []RoleTemplate{
+	{
+		Code:        "messaging_admin",
+		Name:        "Messaging Admin",
+		Description: "Manage messaging providers, templates, contacts, campaigns, sends, and analytics.",
+		Permissions: Keys(),
+	},
+	{
+		Code:        "messaging_developer",
+		Name:        "Messaging Developer",
+		Description: "Configure providers, manage templates, send test messages, and read delivery logs.",
+		Permissions: []string{
+			ProvidersRead,
+			ProvidersWrite,
+			ProvidersTest,
+			TemplatesRead,
+			TemplatesWrite,
+			TemplatesSubmit,
+			ContactsRead,
+			MessagesRead,
+			MessagesSend,
+			AnalyticsRead,
+		},
+	},
+	{
+		Code:        "messaging_campaign_manager",
+		Name:        "Campaign Manager",
+		Description: "Build audiences, manage consent, launch campaigns, and read campaign analytics.",
+		Permissions: []string{
+			AnalyticsRead,
+			TemplatesRead,
+			ContactsRead,
+			ContactsWrite,
+			ContactsImport,
+			ContactsManageConsent,
+			SegmentsRead,
+			SegmentsWrite,
+			CampaignsRead,
+			CampaignsWrite,
+			CampaignsExecute,
+			MessagesRead,
+			MessagesSendBulk,
+		},
+	},
+	{
+		Code:        "messaging_support_agent",
+		Name:        "Support Agent",
+		Description: "Read contacts and message history, send replies, and review basic analytics.",
+		Permissions: []string{
+			AnalyticsRead,
+			ContactsRead,
+			MessagesRead,
+			MessagesSend,
+		},
+	},
+	{
+		Code:        "messaging_read_only",
+		Name:        "Messaging Read Only",
+		Description: "View messaging configuration, templates, contacts, campaigns, messages, and analytics.",
+		Permissions: []string{
+			AnalyticsRead,
+			ProvidersRead,
+			TemplatesRead,
+			ContactsRead,
+			SegmentsRead,
+			CampaignsRead,
+			MessagesRead,
+		},
+	},
 }
 
 // Keys returns the permission keys in catalog order.
