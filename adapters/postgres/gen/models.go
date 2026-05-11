@@ -173,6 +173,20 @@ type MessagingProviderConfig struct {
 	UpdatedAt     time.Time   `json:"updated_at"`
 }
 
+type MessagingRateCard struct {
+	ID            uuid.UUID          `json:"id"`
+	TenantID      pgtype.UUID        `json:"tenant_id"`
+	Channel       string             `json:"channel"`
+	Category      string             `json:"category"`
+	Country       string             `json:"country"`
+	Currency      string             `json:"currency"`
+	UnitPrice     pgtype.Numeric     `json:"unit_price"`
+	EffectiveFrom time.Time          `json:"effective_from"`
+	EffectiveTo   pgtype.Timestamptz `json:"effective_to"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+}
+
 type MessagingSegment struct {
 	ID        uuid.UUID       `json:"id"`
 	TenantID  uuid.UUID       `json:"tenant_id"`
@@ -223,6 +237,21 @@ type MessagingUnsubscribe struct {
 	CampaignID pgtype.UUID `json:"campaign_id"`
 	Reason     string      `json:"reason"`
 	CreatedAt  time.Time   `json:"created_at"`
+}
+
+type MessagingWalletLedger struct {
+	ID            uuid.UUID       `json:"id"`
+	TenantID      uuid.UUID       `json:"tenant_id"`
+	EntryType     string          `json:"entry_type"`
+	Amount        pgtype.Numeric  `json:"amount"`
+	Currency      string          `json:"currency"`
+	Channel       pgtype.Text     `json:"channel"`
+	Category      string          `json:"category"`
+	ReferenceType string          `json:"reference_type"`
+	ReferenceID   pgtype.UUID     `json:"reference_id"`
+	Description   string          `json:"description"`
+	Metadata      json.RawMessage `json:"metadata"`
+	CreatedAt     time.Time       `json:"created_at"`
 }
 
 type MessagingWebhookDelivery struct {

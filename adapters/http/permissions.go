@@ -37,4 +37,7 @@ const (
 	permWebhooksWrite  = msgpermissions.WebhooksWrite
 	permWebhooksTest   = msgpermissions.WebhooksTest
 	permWebhooksReplay = msgpermissions.WebhooksReplay
+
+	permBillingRead   = msgpermissions.BillingRead
+	permBillingManage = msgpermissions.BillingManage
 )

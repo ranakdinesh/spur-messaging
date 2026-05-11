@@ -40,6 +40,9 @@ const (
 	WebhooksWrite  = "messaging:webhooks:write"
 	WebhooksTest   = "messaging:webhooks:test"
 	WebhooksReplay = "messaging:webhooks:replay"
+
+	BillingRead   = "messaging:billing:read"
+	BillingManage = "messaging:billing:manage"
 )
 
 // Permission describes a permission that can be synced into Identity.
@@ -85,6 +88,8 @@ var Catalog = []Permission{
 	{Key: WebhooksWrite, Description: "Create, update, disable, and delete tenant webhook endpoints."},
 	{Key: WebhooksTest, Description: "Send test events to tenant webhook endpoints."},
 	{Key: WebhooksReplay, Description: "Replay tenant webhook deliveries."},
+	{Key: BillingRead, Description: "Read wallet balances, usage charges, rate cards, and billing ledger entries."},
+	{Key: BillingManage, Description: "Create wallet credits, billing adjustments, and rate cards."},
 }
 
 // RoleTemplates groups the messaging permissions into practical tenant roles.
@@ -117,6 +122,7 @@ var RoleTemplates = []RoleTemplate{
 			WebhooksWrite,
 			WebhooksTest,
 			WebhooksReplay,
+			BillingRead,
 			AnalyticsRead,
 		},
 	},
@@ -140,6 +146,7 @@ var RoleTemplates = []RoleTemplate{
 			MessagesSendBulk,
 			ConversationsRead,
 			WebhooksRead,
+			BillingRead,
 		},
 	},
 	{
@@ -169,6 +176,19 @@ var RoleTemplates = []RoleTemplate{
 			MessagesRead,
 			ConversationsRead,
 			WebhooksRead,
+			BillingRead,
+		},
+	},
+	{
+		Code:        "messaging_finance",
+		Name:        "Finance User",
+		Description: "Review usage, wallet balance, billing ledger, and manage billing adjustments.",
+		Permissions: []string{
+			AnalyticsRead,
+			CampaignsRead,
+			MessagesRead,
+			BillingRead,
+			BillingManage,
 		},
 	},
 }

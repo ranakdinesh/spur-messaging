@@ -12,6 +12,7 @@ func RegisterRoutes(r chi.Router,
 	contactH *ContactHandler,
 	convH *ConversationHandler,
 	webhookH *TenantWebhookHandler,
+	billingH *BillingHandler,
 	segmentH *SegmentHandler,
 	provH *ProviderHandler,
 	unsubH *UnsubscribeHandler,
@@ -36,6 +37,15 @@ func RegisterRoutes(r chi.Router,
 		r.Post("/webhooks/{id}/test", webhookH.TestWebhook)                         // messaging:webhooks:test
 		r.Get("/webhooks/{id}/deliveries", webhookH.ListDeliveries)                 // messaging:webhooks:read
 		r.Post("/webhooks/deliveries/{deliveryID}/replay", webhookH.ReplayDelivery) // messaging:webhooks:replay
+
+		// Billing / wallet
+		r.Get("/wallet/balance", billingH.WalletBalance)         // messaging:billing:read
+		r.Post("/wallet/credits", billingH.CreditWallet)         // messaging:billing:manage
+		r.Get("/billing/ledger", billingH.Ledger)                // messaging:billing:read
+		r.Post("/billing/adjustments", billingH.AdjustWallet)    // messaging:billing:manage
+		r.Post("/billing/rate-cards", billingH.CreateRateCard)   // messaging:billing:manage
+		r.Get("/billing/estimate", billingH.EstimateMessageCost) // messaging:billing:read
+		r.Get("/usage", billingH.Usage)                          // messaging:billing:read
 
 		// Templates (WhatsApp)
 		r.Post("/templates", tmplH.CreateTemplate)                // messaging:templates:write

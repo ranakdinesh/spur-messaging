@@ -1594,3 +1594,124 @@ func (s *Store) UpdateWebhookDelivery(ctx context.Context, delivery *domain.Webh
 	*delivery = toWebhookDeliveryDomain(row)
 	return nil
 }
+
+// BillingRepository
+func (s *Store) CreateWalletLedgerEntry(ctx context.Context, entry *domain.WalletLedgerEntry) error {
+	metadata, _ := json.Marshal(entry.Metadata)
+	row, err := s.q.CreateWalletLedgerEntry(ctx, gen.CreateWalletLedgerEntryParams{
+		ID:            entry.ID,
+		TenantID:      entry.TenantID,
+		EntryType:     string(entry.EntryType),
+		Amount:        fromFloat64(entry.Amount),
+		Currency:      entry.Currency,
+		Channel:       fromStringPtr((*string)(entry.Channel)),
+		Category:      entry.Category,
+		ReferenceType: entry.ReferenceType,
+		ReferenceID:   fromUUIDPtr(entry.ReferenceID),
+		Description:   entry.Description,
+		Metadata:      metadata,
+		CreatedAt:     entry.CreatedAt,
+	})
+	if err != nil {
+		return err
+	}
+	*entry = toWalletLedgerDomain(row)
+	return nil
+}
+
+func (s *Store) ListWalletLedgerEntries(ctx context.Context, tenantID uuid.UUID, currency string, page, perPage int) ([]domain.WalletLedgerEntry, int, error) {
+	rows, err := s.q.ListWalletLedgerEntries(ctx, gen.ListWalletLedgerEntriesParams{
+		TenantID: tenantID,
+		Currency: currency,
+		Limit:    int32(perPage),
+		Offset:   int32(page * perPage),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	entries := make([]domain.WalletLedgerEntry, 0, len(rows))
+	total := 0
+	for _, row := range rows {
+		entries = append(entries, toWalletLedgerDomain(gen.MessagingWalletLedger{
+			ID:            row.ID,
+			TenantID:      row.TenantID,
+			EntryType:     row.EntryType,
+			Amount:        row.Amount,
+			Currency:      row.Currency,
+			Channel:       row.Channel,
+			Category:      row.Category,
+			ReferenceType: row.ReferenceType,
+			ReferenceID:   row.ReferenceID,
+			Description:   row.Description,
+			Metadata:      row.Metadata,
+			CreatedAt:     row.CreatedAt,
+		}))
+		total = int(row.TotalCount)
+	}
+	return entries, total, nil
+}
+
+func (s *Store) GetWalletBalance(ctx context.Context, tenantID uuid.UUID, currency string) (*domain.WalletBalance, error) {
+	row, err := s.q.GetWalletBalance(ctx, gen.GetWalletBalanceParams{
+		Column1: tenantID,
+		Column2: currency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &domain.WalletBalance{
+		TenantID:         row.TenantID,
+		Currency:         row.Currency,
+		CurrentBalance:   numericToFloat64(row.CurrentBalance),
+		ReservedBalance:  numericToFloat64(row.ReservedBalance),
+		AvailableBalance: numericToFloat64(row.AvailableBalance),
+		UpdatedAt:        row.UpdatedAt,
+	}, nil
+}
+
+func (s *Store) WalletLedgerReferenceExists(ctx context.Context, tenantID uuid.UUID, referenceType string, referenceID uuid.UUID, entryType domain.WalletLedgerEntryType) (bool, error) {
+	return s.q.WalletLedgerReferenceExists(ctx, gen.WalletLedgerReferenceExistsParams{
+		TenantID:      tenantID,
+		ReferenceType: referenceType,
+		ReferenceID:   fromUUID(referenceID),
+		EntryType:     string(entryType),
+	})
+}
+
+func (s *Store) GetActiveRateCard(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, category, country, currency string, at time.Time) (*domain.RateCard, error) {
+	row, err := s.q.GetActiveRateCard(ctx, gen.GetActiveRateCardParams{
+		TenantID:      fromUUID(tenantID),
+		Channel:       string(channel),
+		Category:      category,
+		Country:       country,
+		Currency:      currency,
+		EffectiveFrom: at,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	rate := toRateCardDomain(row)
+	return &rate, nil
+}
+
+func (s *Store) CreateRateCard(ctx context.Context, rate *domain.RateCard) error {
+	row, err := s.q.CreateRateCard(ctx, gen.CreateRateCardParams{
+		ID:            rate.ID,
+		TenantID:      fromUUIDPtr(rate.TenantID),
+		Channel:       string(rate.Channel),
+		Category:      rate.Category,
+		Country:       rate.Country,
+		Currency:      rate.Currency,
+		UnitPrice:     fromFloat64(rate.UnitPrice),
+		EffectiveFrom: rate.EffectiveFrom,
+		EffectiveTo:   fromTimePtr(rate.EffectiveTo),
+	})
+	if err != nil {
+		return err
+	}
+	*rate = toRateCardDomain(row)
+	return nil
+}

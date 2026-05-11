@@ -35,6 +35,7 @@ type Querier interface {
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (MessagingMessage, error)
 	// sql/queries/provider_configs.sql
 	CreateProviderConfig(ctx context.Context, arg CreateProviderConfigParams) (MessagingProviderConfig, error)
+	CreateRateCard(ctx context.Context, arg CreateRateCardParams) (MessagingRateCard, error)
 	// sql/queries/segments.sql
 	CreateSegment(ctx context.Context, arg CreateSegmentParams) (MessagingSegment, error)
 	// sql/queries/suppressions.sql
@@ -43,6 +44,8 @@ type Querier interface {
 	CreateTemplate(ctx context.Context, arg CreateTemplateParams) (MessagingTemplate, error)
 	// sql/queries/unsubscribes.sql
 	CreateUnsubscribe(ctx context.Context, arg CreateUnsubscribeParams) (MessagingUnsubscribe, error)
+	// sql/queries/billing.sql
+	CreateWalletLedgerEntry(ctx context.Context, arg CreateWalletLedgerEntryParams) (MessagingWalletLedger, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (MessagingWebhookDelivery, error)
 	// sql/queries/webhooks.sql
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
@@ -57,6 +60,7 @@ type Querier interface {
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
 	ExistsByProviderEventID(ctx context.Context, providerEventID pgtype.Text) (bool, error)
 	GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error)
+	GetActiveRateCard(ctx context.Context, arg GetActiveRateCardParams) (MessagingRateCard, error)
 	GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams) (MessagingCampaign, error)
 	GetCampaignStats(ctx context.Context, arg GetCampaignStatsParams) (json.RawMessage, error)
 	GetContactByEmail(ctx context.Context, arg GetContactByEmailParams) (MessagingContact, error)
@@ -86,6 +90,7 @@ type Querier interface {
 	GetTemplateByID(ctx context.Context, arg GetTemplateByIDParams) (MessagingTemplate, error)
 	GetTemplateByName(ctx context.Context, arg GetTemplateByNameParams) (MessagingTemplate, error)
 	GetUnsubscribesByEmail(ctx context.Context, arg GetUnsubscribesByEmailParams) ([]MessagingUnsubscribe, error)
+	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (GetWalletBalanceRow, error)
 	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (MessagingWebhookDelivery, error)
 	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (MessagingWebhookEndpoint, error)
 	IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error)
@@ -102,6 +107,7 @@ type Querier interface {
 	ListSuppressions(ctx context.Context, arg ListSuppressionsParams) ([]ListSuppressionsRow, error)
 	ListTemplates(ctx context.Context, arg ListTemplatesParams) ([]ListTemplatesRow, error)
 	ListUnsubscribes(ctx context.Context, arg ListUnsubscribesParams) ([]ListUnsubscribesRow, error)
+	ListWalletLedgerEntries(ctx context.Context, arg ListWalletLedgerEntriesParams) ([]ListWalletLedgerEntriesRow, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]ListWebhookDeliveriesRow, error)
 	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]ListWebhookEndpointsRow, error)
 	RemoveContactFromSegment(ctx context.Context, arg RemoveContactFromSegmentParams) error
@@ -124,6 +130,7 @@ type Querier interface {
 	UpdateWebhookEndpoint(ctx context.Context, arg UpdateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
 	UpsertConversationInbound(ctx context.Context, arg UpsertConversationInboundParams) (MessagingConversation, error)
 	UpsertConversationOutbound(ctx context.Context, arg UpsertConversationOutboundParams) (MessagingConversation, error)
+	WalletLedgerReferenceExists(ctx context.Context, arg WalletLedgerReferenceExistsParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

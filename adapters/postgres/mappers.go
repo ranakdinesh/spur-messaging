@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -337,6 +338,43 @@ func toWebhookDeliveryDomain(w gen.MessagingWebhookDelivery) domain.WebhookDeliv
 	}
 }
 
+func toWalletLedgerDomain(w gen.MessagingWalletLedger) domain.WalletLedgerEntry {
+	var metadata map[string]string
+	if w.Metadata != nil {
+		_ = json.Unmarshal(w.Metadata, &metadata)
+	}
+	return domain.WalletLedgerEntry{
+		ID:            w.ID,
+		TenantID:      w.TenantID,
+		EntryType:     domain.WalletLedgerEntryType(w.EntryType),
+		Amount:        numericToFloat64(w.Amount),
+		Currency:      w.Currency,
+		Channel:       pgChannelToPtr(w.Channel),
+		Category:      w.Category,
+		ReferenceType: w.ReferenceType,
+		ReferenceID:   pgUUIDToPtr(w.ReferenceID),
+		Description:   w.Description,
+		Metadata:      metadata,
+		CreatedAt:     w.CreatedAt,
+	}
+}
+
+func toRateCardDomain(r gen.MessagingRateCard) domain.RateCard {
+	return domain.RateCard{
+		ID:            r.ID,
+		TenantID:      pgUUIDToPtr(r.TenantID),
+		Channel:       domain.Channel(r.Channel),
+		Category:      r.Category,
+		Country:       r.Country,
+		Currency:      r.Currency,
+		UnitPrice:     numericToFloat64(r.UnitPrice),
+		EffectiveFrom: r.EffectiveFrom,
+		EffectiveTo:   pgTimestamptzToPtr(r.EffectiveTo),
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
+	}
+}
+
 func toWebhookEvents(events []string) []domain.WebhookEventType {
 	res := make([]domain.WebhookEventType, 0, len(events))
 	for _, event := range events {
@@ -375,6 +413,14 @@ func pgTextToStringPtr(t pgtype.Text) *string {
 	}
 	res := t.String
 	return &res
+}
+
+func pgChannelToPtr(t pgtype.Text) *domain.Channel {
+	if !t.Valid {
+		return nil
+	}
+	channel := domain.Channel(t.String)
+	return &channel
 }
 
 func nullableStringPtr(s string) *string {
@@ -437,6 +483,23 @@ func fromIntPtr(i *int) pgtype.Int4 {
 		return pgtype.Int4{Valid: false}
 	}
 	return pgtype.Int4{Int32: int32(*i), Valid: true}
+}
+
+func fromFloat64(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%.6f", f))
+	return n
+}
+
+func numericToFloat64(n pgtype.Numeric) float64 {
+	if !n.Valid {
+		return 0
+	}
+	value, err := n.Float64Value()
+	if err != nil || !value.Valid {
+		return 0
+	}
+	return value.Float64
 }
 
 func toMessageCreateSQLC(m *domain.Message) gen.CreateMessageParams {

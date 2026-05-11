@@ -17,6 +17,7 @@ type Sender struct {
 	campaignRepo     ports.CampaignRepository
 	providerRepo     ports.ProviderConfigRepository
 	providerRegistry *services.ProviderRegistry
+	billingSvc       ports.BillingService
 }
 
 func NewSender(
@@ -25,6 +26,7 @@ func NewSender(
 	campaignRepo ports.CampaignRepository,
 	providerRepo ports.ProviderConfigRepository,
 	providerRegistry *services.ProviderRegistry,
+	billingSvc ports.BillingService,
 ) *Sender {
 	return &Sender{
 		queue:            queue,
@@ -32,6 +34,7 @@ func NewSender(
 		campaignRepo:     campaignRepo,
 		providerRepo:     providerRepo,
 		providerRegistry: providerRegistry,
+		billingSvc:       billingSvc,
 	}
 }
 
@@ -193,5 +196,41 @@ func (s *Sender) sendWithCfg(ctx context.Context, msg *domain.Message, cfg *doma
 	msg.Cost = result.Cost
 	msg.SentAt = &result.Timestamp
 
-	return s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, msg.Status, msg.ProviderMessageID)
+	if err := s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, msg.Status, msg.ProviderMessageID); err != nil {
+		return err
+	}
+	if s.billingSvc != nil && msg.Direction == "outbound" {
+		_, err := s.billingSvc.RecordMessageCharge(ctx, domain.UsageCharge{
+			TenantID:     msg.TenantID,
+			MessageID:    msg.ID,
+			CampaignID:   msg.CampaignID,
+			Channel:      msg.Channel,
+			Category:     billingCategoryForMessage(msg),
+			Country:      msg.Metadata["country"],
+			Currency:     msg.Metadata["currency"],
+			ProviderCost: result.Cost,
+			Provider:     cfg.Provider,
+			Description:  "Message accepted by provider",
+			OccurredAt:   result.Timestamp,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func billingCategoryForMessage(msg *domain.Message) string {
+	if msg.Metadata != nil {
+		if category := msg.Metadata["category"]; category != "" {
+			return category
+		}
+	}
+	if msg.Channel == domain.ChannelWhatsApp && msg.MessageType == domain.MessageTypeTemplate {
+		return "utility"
+	}
+	if msg.Channel == domain.ChannelEmail {
+		return "marketing"
+	}
+	return "service"
 }

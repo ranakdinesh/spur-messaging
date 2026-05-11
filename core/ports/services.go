@@ -177,6 +177,16 @@ type TenantWebhookService interface {
 	ProcessDueDeliveries(ctx context.Context, limit int) error
 }
 
+type BillingService interface {
+	GetWalletBalance(ctx context.Context, tenantID uuid.UUID, currency string) (*domain.WalletBalance, error)
+	ListLedger(ctx context.Context, tenantID uuid.UUID, currency string, page, perPage int) ([]domain.WalletLedgerEntry, int, error)
+	CreditWallet(ctx context.Context, tenantID uuid.UUID, amount float64, currency, description string, metadata map[string]string) (*domain.WalletLedgerEntry, error)
+	AdjustWallet(ctx context.Context, tenantID uuid.UUID, amount float64, currency, description string, metadata map[string]string) (*domain.WalletLedgerEntry, error)
+	EstimateMessageCost(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, category, country, currency string) (float64, error)
+	RecordMessageCharge(ctx context.Context, charge domain.UsageCharge) (*domain.WalletLedgerEntry, error)
+	CreateRateCard(ctx context.Context, tenantID *uuid.UUID, channel domain.Channel, category, country, currency string, unitPrice float64, effectiveFrom time.Time) (*domain.RateCard, error)
+}
+
 type CreateWebhookEndpointRequest struct {
 	URL    string                    `json:"url"`
 	Events []domain.WebhookEventType `json:"events"`

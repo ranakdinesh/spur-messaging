@@ -96,6 +96,7 @@ type Services struct {
 	SuppressionService    ports.SuppressionService
 	ConversationService   ports.ConversationService
 	TenantWebhookService  ports.TenantWebhookService
+	BillingService        ports.BillingService
 }
 
 // Module is the messaging module instance
@@ -110,6 +111,7 @@ type Module struct {
 		contact       *http.ContactHandler
 		conversation  *http.ConversationHandler
 		webhook       *http.TenantWebhookHandler
+		billing       *http.BillingHandler
 		segment       *http.SegmentHandler
 		provider      *http.ProviderHandler
 		unsubscribe   *http.UnsubscribeHandler
@@ -183,6 +185,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailSenderSvc := services.NewEmailSender(messageSvc)
 	conversationSvc := services.NewConversationService(store)
 	tenantWebhookSvc := services.NewTenantWebhookService(store, nil, log)
+	billingSvc := services.NewBillingService(store)
 	webhookSvc := services.NewWebhookService(msgRepo, store, contactSvc, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, tenantWebhookSvc, log)
 
 	// 7. Create handlers
@@ -199,6 +202,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 			SuppressionService:    suppressionSvc,
 			ConversationService:   conversationSvc,
 			TenantWebhookService:  tenantWebhookSvc,
+			BillingService:        billingSvc,
 		},
 		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
 			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
@@ -212,6 +216,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.handlers.contact = http.NewContactHandler(contactSvc)
 	m.handlers.conversation = http.NewConversationHandler(conversationSvc)
 	m.handlers.webhook = http.NewTenantWebhookHandler(tenantWebhookSvc)
+	m.handlers.billing = http.NewBillingHandler(billingSvc)
 	m.handlers.segment = http.NewSegmentHandler(segmentServiceAdapter{store})
 	m.handlers.provider = http.NewProviderHandler(providerConfigRepo, messageSvc)
 	m.handlers.unsubscribe = http.NewUnsubscribeHandler(unsubscribeSvc)
@@ -225,7 +230,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.rateLimiter = http.NewRateLimiter(rateLimit, time.Second)
 
 	// 8. Start worker goroutines
-	sender := worker.NewSender(msgQueue, msgRepo, campaignRepo, providerConfigRepo, providerRegistry)
+	sender := worker.NewSender(msgQueue, msgRepo, campaignRepo, providerConfigRepo, providerRegistry, billingSvc)
 	go func() {
 		if err := sender.Start(ctx); err != nil {
 			log.Error("Sender worker stopped with error", "error", err)
@@ -273,6 +278,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		m.handlers.contact,
 		m.handlers.conversation,
 		m.handlers.webhook,
+		m.handlers.billing,
 		m.handlers.segment,
 		m.handlers.provider,
 		m.handlers.unsubscribe,

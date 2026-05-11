@@ -134,6 +134,14 @@
     {
       "key": "messaging:webhooks:replay",
       "description": "Replay tenant webhook deliveries."
+    },
+    {
+      "key": "messaging:billing:read",
+      "description": "Read wallet balances, usage charges, rate cards, and billing ledger entries."
+    },
+    {
+      "key": "messaging:billing:manage",
+      "description": "Create wallet credits, billing adjustments, and rate cards."
     }
   ],
   "role_templates": [
@@ -167,7 +175,9 @@
         "messaging:webhooks:read",
         "messaging:webhooks:write",
         "messaging:webhooks:test",
-        "messaging:webhooks:replay"
+        "messaging:webhooks:replay",
+        "messaging:billing:read",
+        "messaging:billing:manage"
       ]
     },
     {
@@ -191,6 +201,7 @@
         "messaging:webhooks:write",
         "messaging:webhooks:test",
         "messaging:webhooks:replay",
+        "messaging:billing:read",
         "messaging:analytics:read"
       ]
     },
@@ -213,7 +224,8 @@
         "messaging:messages:read",
         "messaging:messages:send_bulk",
         "messaging:conversations:read",
-        "messaging:webhooks:read"
+        "messaging:webhooks:read",
+        "messaging:billing:read"
       ]
     },
     {
@@ -242,7 +254,20 @@
         "messaging:campaigns:read",
         "messaging:messages:read",
         "messaging:conversations:read",
-        "messaging:webhooks:read"
+        "messaging:webhooks:read",
+        "messaging:billing:read"
+      ]
+    },
+    {
+      "code": "messaging_finance",
+      "name": "Finance User",
+      "description": "Review usage, wallet balance, billing ledger, and manage billing adjustments.",
+      "permissions": [
+        "messaging:analytics:read",
+        "messaging:campaigns:read",
+        "messaging:messages:read",
+        "messaging:billing:read",
+        "messaging:billing:manage"
       ]
     }
   ],

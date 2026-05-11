@@ -192,3 +192,12 @@ type WebhookEventPayload struct {
 	OccurredAt time.Time               `json:"occurred_at"`
 	Raw        json.RawMessage         `json:"-"`
 }
+
+type BillingRepository interface {
+	CreateWalletLedgerEntry(ctx context.Context, entry *domain.WalletLedgerEntry) error
+	ListWalletLedgerEntries(ctx context.Context, tenantID uuid.UUID, currency string, page, perPage int) ([]domain.WalletLedgerEntry, int, error)
+	GetWalletBalance(ctx context.Context, tenantID uuid.UUID, currency string) (*domain.WalletBalance, error)
+	WalletLedgerReferenceExists(ctx context.Context, tenantID uuid.UUID, referenceType string, referenceID uuid.UUID, entryType domain.WalletLedgerEntryType) (bool, error)
+	GetActiveRateCard(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, category, country, currency string, at time.Time) (*domain.RateCard, error)
+	CreateRateCard(ctx context.Context, rate *domain.RateCard) error
+}
