@@ -53,8 +53,8 @@ type EmailMessageMeta struct {
 
 type EmailAttachment struct {
 	Filename    string `json:"filename"`
-	ContentType string `json:"content_type"` // e.g. "application/pdf"
-	Content     string `json:"content"`      // base64-encoded content
+	ContentType string `json:"content_type"`         // e.g. "application/pdf"
+	Content     string `json:"content"`              // base64-encoded content
 	ContentID   string `json:"content_id,omitempty"` // for inline images
 }
 
@@ -68,13 +68,13 @@ type EmailEvent struct {
 	EventType         EmailEventType
 	Recipient         string // email address
 	Timestamp         time.Time
-	ProviderEventID   string // provider's unique event ID (for dedup)
-	UserAgent         string // for open/click events
-	IPAddress         string // for open/click events
-	URL               string // for click events: which link was clicked
-	BounceType        *string // "hard" or "soft" (for bounce events)
-	BounceReason      *string // SMTP error message
-	ComplaintFeedback *string // ISP complaint feedback type
+	ProviderEventID   string            // provider's unique event ID (for dedup)
+	UserAgent         string            // for open/click events
+	IPAddress         string            // for open/click events
+	URL               string            // for click events: which link was clicked
+	BounceType        *string           // "hard" or "soft" (for bounce events)
+	BounceReason      *string           // SMTP error message
+	ComplaintFeedback *string           // ISP complaint feedback type
 	RawPayload        map[string]string // provider's raw webhook data for debugging
 	CreatedAt         time.Time
 }
@@ -108,8 +108,8 @@ type UnsubscribeScope string
 
 const (
 	UnsubscribeScopeGlobal   UnsubscribeScope = "global"   // all emails from tenant
-	UnsubscribeScopeCampaign UnsubscribeScope = "campaign"  // specific campaign only
-	UnsubscribeScopeCategory UnsubscribeScope = "category"  // all marketing, keep transactional
+	UnsubscribeScopeCampaign UnsubscribeScope = "campaign" // specific campaign only
+	UnsubscribeScopeCategory UnsubscribeScope = "category" // all marketing, keep transactional
 )
 
 // SuppressionEntry — addresses that must NEVER receive email.
@@ -117,6 +117,8 @@ const (
 type SuppressionEntry struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
+	Channel   Channel
+	Recipient string
 	Email     string
 	Reason    SuppressionReason
 	Source    string // "bounce_webhook", "complaint_webhook", "manual", "import"

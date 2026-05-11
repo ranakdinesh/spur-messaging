@@ -205,9 +205,9 @@ type ImportRowError struct {
 }
 
 type SuppressionService interface {
-	IsSuppressed(ctx context.Context, tenantID uuid.UUID, email string) (bool, error)
-	AddToSuppression(ctx context.Context, tenantID uuid.UUID, email string, reason domain.SuppressionReason) error
+	IsSuppressed(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string) (bool, error)
+	AddToSuppression(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, reason domain.SuppressionReason) error
 	RemoveFromSuppression(ctx context.Context, tenantID, id uuid.UUID) error
 	List(ctx context.Context, tenantID uuid.UUID, reason *domain.SuppressionReason, page, perPage int) ([]domain.SuppressionEntry, int, error)
-	BulkCheck(ctx context.Context, tenantID uuid.UUID, emails []string) ([]string, error)
+	BulkCheck(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipients []string) ([]string, error)
 }

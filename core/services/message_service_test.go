@@ -102,7 +102,45 @@ func TestMessageServiceSendStoresIdempotencyKeyAndDoesNotEnqueueDuplicate(t *tes
 	}
 }
 
+func TestMessageServiceSendStoresSuppressedSMSWithoutEnqueue(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	phone := "+919810914244"
+	repo := newMessageRepoStub()
+	queue := &messageQueueStub{}
+	svc := newSMSMessageServiceWithSuppression(repo, queue, tenantID, phone, &suppressionServiceStub{
+		suppressed: map[string]bool{string(domain.ChannelSMS) + ":" + phone: true},
+	})
+
+	text := "hello"
+	msg, err := svc.Send(ctx, tenantID, ports.SendMessageRequest{
+		Channel:     domain.ChannelSMS,
+		Recipient:   phone,
+		MessageType: domain.MessageTypeText,
+		Text:        &text,
+	})
+	if err != nil {
+		t.Fatalf("Send returned error: %v", err)
+	}
+	if msg.Status != domain.MessageStatusSuppressed {
+		t.Fatalf("expected suppressed message status, got %q", msg.Status)
+	}
+	if msg.ErrorCode == nil || *msg.ErrorCode != "SUPPRESSED" {
+		t.Fatalf("expected SUPPRESSED error code, got %#v", msg.ErrorCode)
+	}
+	if repo.createCalls != 1 {
+		t.Fatalf("expected suppressed message to be stored once, got %d creates", repo.createCalls)
+	}
+	if len(queue.enqueued) != 0 {
+		t.Fatalf("expected suppressed message not to enqueue, got %d enqueues", len(queue.enqueued))
+	}
+}
+
 func newSMSMessageService(repo *messageRepoStub, queue *messageQueueStub, tenantID uuid.UUID, phone string) *MessageService {
+	return newSMSMessageServiceWithSuppression(repo, queue, tenantID, phone, nil)
+}
+
+func newSMSMessageServiceWithSuppression(repo *messageRepoStub, queue *messageQueueStub, tenantID uuid.UUID, phone string, suppressionSvc ports.SuppressionService) *MessageService {
 	configRepo := &providerConfigRepoStub{
 		cfg: &domain.ProviderConfig{
 			ID:          uuid.New(),
@@ -121,7 +159,7 @@ func newSMSMessageService(repo *messageRepoStub, queue *messageQueueStub, tenant
 		&contactRepoStub{phone: phone},
 		nil,
 		queue,
-		nil,
+		suppressionSvc,
 		nil,
 		nil,
 		registry,
@@ -213,13 +251,14 @@ type contactRepoStub struct {
 
 func (r *contactRepoStub) contact(tenantID uuid.UUID) *domain.Contact {
 	return &domain.Contact{
-		ID:         uuid.New(),
-		TenantID:   tenantID,
-		Phone:      &r.phone,
-		OptInSMS:   domain.OptInStatusOptedIn,
-		OptInEmail: domain.OptInStatusOptedIn,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		Phone:         &r.phone,
+		OptInWhatsApp: domain.OptInStatusOptedIn,
+		OptInSMS:      domain.OptInStatusOptedIn,
+		OptInEmail:    domain.OptInStatusOptedIn,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 }
 
@@ -315,4 +354,28 @@ func (p fakeProvider) ParseWebhook(context.Context, *domain.ProviderConfig, http
 }
 func (p fakeProvider) ValidateWebhookSignature(*domain.ProviderConfig, http.Header, []byte) bool {
 	return true
+}
+
+type suppressionServiceStub struct {
+	suppressed map[string]bool
+}
+
+func (s *suppressionServiceStub) IsSuppressed(_ context.Context, _ uuid.UUID, channel domain.Channel, recipient string) (bool, error) {
+	return s.suppressed[string(channel)+":"+recipient], nil
+}
+
+func (s *suppressionServiceStub) AddToSuppression(context.Context, uuid.UUID, domain.Channel, string, domain.SuppressionReason) error {
+	return nil
+}
+
+func (s *suppressionServiceStub) RemoveFromSuppression(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
+
+func (s *suppressionServiceStub) List(context.Context, uuid.UUID, *domain.SuppressionReason, int, int) ([]domain.SuppressionEntry, int, error) {
+	return nil, 0, nil
+}
+
+func (s *suppressionServiceStub) BulkCheck(context.Context, uuid.UUID, domain.Channel, []string) ([]string, error) {
+	return nil, nil
 }

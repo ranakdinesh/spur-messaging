@@ -187,24 +187,6 @@ func (s *CampaignService) Execute(ctx context.Context, tenantID, id uuid.UUID) e
 			continue
 		}
 
-		// Email specific checks
-		if campaign.Channel == domain.ChannelEmail {
-			if contact.Email == nil {
-				continue
-			}
-			// Bulk-check suppression list
-			suppressed, err := s.suppressionSvc.IsSuppressed(ctx, tenantID, *contact.Email)
-			if err != nil || suppressed {
-				continue
-			}
-			// Filter unsubscribed
-			unsubscribed, err := s.unsubscribeSvc.IsUnsubscribed(ctx, tenantID, *contact.Email)
-			if err != nil || unsubscribed {
-				continue
-			}
-		}
-
-		// Create message
 		recipient := ""
 		if contact.Phone != nil {
 			recipient = *contact.Phone
@@ -215,6 +197,19 @@ func (s *CampaignService) Execute(ctx context.Context, tenantID, id uuid.UUID) e
 
 		if recipient == "" {
 			continue
+		}
+
+		if s.suppressionSvc != nil {
+			suppressed, err := s.suppressionSvc.IsSuppressed(ctx, tenantID, campaign.Channel, recipient)
+			if err != nil || suppressed {
+				continue
+			}
+		}
+		if campaign.Channel == domain.ChannelEmail && s.unsubscribeSvc != nil {
+			unsubscribed, err := s.unsubscribeSvc.IsUnsubscribed(ctx, tenantID, recipient)
+			if err != nil || unsubscribed {
+				continue
+			}
 		}
 
 		msg := &domain.Message{

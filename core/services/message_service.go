@@ -112,71 +112,6 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 		}
 		req.TrackClicks = &trackClicks
 
-		// 3. CHECK SUPPRESSION
-		suppressed, err := s.suppressionSvc.IsSuppressed(ctx, tenantID, req.Recipient)
-		if err != nil {
-			return nil, err
-		}
-		if suppressed {
-			msg := &domain.Message{
-				ID:          uuid.New(),
-				TenantID:    tenantID,
-				Channel:     domain.ChannelEmail,
-				Direction:   "outbound",
-				Recipient:   req.Recipient,
-				MessageType: req.MessageType,
-				Status:      domain.MessageStatusSuppressed,
-				ErrorCode:   new("SUPPRESSED"),
-				CreatedAt:   time.Now(),
-				Metadata:    req.Metadata,
-			}
-			if req.IdempotencyKey != "" {
-				msg.IdempotencyKey = &req.IdempotencyKey
-			}
-			if msg.Metadata == nil {
-				msg.Metadata = make(map[string]string)
-			}
-			msg.Metadata["from_email"] = req.FromEmail
-			msg.Metadata["from_name"] = req.FromName
-			_ = s.repo.Create(ctx, msg)
-			return msg, nil
-		}
-
-		// 4. CHECK UNSUBSCRIBE (marketing only)
-		isMarketing := true
-		if req.Metadata != nil && req.Metadata["category"] == "transactional" {
-			isMarketing = false
-		}
-		if isMarketing {
-			unsubscribed, err := s.unsubscribeSvc.IsUnsubscribed(ctx, tenantID, req.Recipient)
-			if err != nil {
-				return nil, err
-			}
-			if unsubscribed {
-				msg := &domain.Message{
-					ID:          uuid.New(),
-					TenantID:    tenantID,
-					Channel:     domain.ChannelEmail,
-					Direction:   "outbound",
-					Recipient:   req.Recipient,
-					MessageType: req.MessageType,
-					Status:      domain.MessageStatusSuppressed,
-					ErrorCode:   new("UNSUBSCRIBED"),
-					CreatedAt:   time.Now(),
-					Metadata:    req.Metadata,
-				}
-				if req.IdempotencyKey != "" {
-					msg.IdempotencyKey = &req.IdempotencyKey
-				}
-				if msg.Metadata == nil {
-					msg.Metadata = make(map[string]string)
-				}
-				msg.Metadata["from_email"] = req.FromEmail
-				msg.Metadata["from_name"] = req.FromName
-				_ = s.repo.Create(ctx, msg)
-				return msg, nil
-			}
-		}
 	}
 
 	if req.Channel == domain.ChannelSMS {
@@ -210,6 +145,26 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 
 	if !optedIn {
 		return nil, domain.ErrOptInRequired
+	}
+
+	if s.suppressionSvc != nil {
+		suppressed, err := s.suppressionSvc.IsSuppressed(ctx, tenantID, req.Channel, req.Recipient)
+		if err != nil {
+			return nil, err
+		}
+		if suppressed {
+			return s.createSuppressedMessage(ctx, tenantID, req, "SUPPRESSED")
+		}
+	}
+
+	if req.Channel == domain.ChannelEmail && s.unsubscribeSvc != nil && isMarketingMessage(req.Metadata) {
+		unsubscribed, err := s.unsubscribeSvc.IsUnsubscribed(ctx, tenantID, req.Recipient)
+		if err != nil {
+			return nil, err
+		}
+		if unsubscribed {
+			return s.createSuppressedMessage(ctx, tenantID, req, "UNSUBSCRIBED")
+		}
 	}
 
 	// 4. Rate limit check (Section 10A.2 - placeholder)
@@ -486,6 +441,49 @@ func (s *MessageService) Retry(ctx context.Context, tenantID, id uuid.UUID) (*do
 	}
 
 	return msg, nil
+}
+
+func (s *MessageService) createSuppressedMessage(ctx context.Context, tenantID uuid.UUID, req ports.SendMessageRequest, code string) (*domain.Message, error) {
+	msg := &domain.Message{
+		ID:          uuid.New(),
+		TenantID:    tenantID,
+		Channel:     req.Channel,
+		Direction:   "outbound",
+		Recipient:   req.Recipient,
+		MessageType: req.MessageType,
+		Status:      domain.MessageStatusSuppressed,
+		ErrorCode:   &code,
+		CreatedAt:   time.Now(),
+		Metadata:    req.Metadata,
+	}
+	if req.IdempotencyKey != "" {
+		msg.IdempotencyKey = &req.IdempotencyKey
+	}
+	if msg.Metadata == nil {
+		msg.Metadata = make(map[string]string)
+	}
+	if req.Channel == domain.ChannelEmail {
+		msg.Metadata["from_email"] = req.FromEmail
+		msg.Metadata["from_name"] = req.FromName
+		msg.Metadata["reply_to"] = req.ReplyTo
+	} else if req.Channel == domain.ChannelSMS {
+		msg.Metadata["sender_id"] = req.SenderID
+	}
+	if err := s.repo.Create(ctx, msg); err != nil {
+		if req.IdempotencyKey != "" && errors.Is(err, domain.ErrAlreadyExists) {
+			existing, getErr := s.repo.GetByIdempotencyKey(ctx, tenantID, req.IdempotencyKey)
+			if getErr == nil {
+				return existing, nil
+			}
+			return nil, getErr
+		}
+		return nil, err
+	}
+	return msg, nil
+}
+
+func isMarketingMessage(metadata map[string]string) bool {
+	return metadata == nil || metadata["category"] != "transactional"
 }
 
 func (s *MessageService) renderEmail(content string, variables map[string]string) string {

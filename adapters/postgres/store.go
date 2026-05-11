@@ -1158,10 +1158,12 @@ func (s *Store) GetByEmail(ctx context.Context, tenantID uuid.UUID, email string
 // SuppressionRepository
 func (s *Store) CreateSuppression(ctx context.Context, entry *domain.SuppressionEntry) error {
 	supp, err := s.q.CreateSuppression(ctx, gen.CreateSuppressionParams{
-		TenantID: entry.TenantID,
-		Email:    entry.Email,
-		Reason:   string(entry.Reason),
-		Source:   entry.Source,
+		TenantID:  entry.TenantID,
+		Channel:   string(entry.Channel),
+		Recipient: entry.Recipient,
+		Email:     fromStringPtr(nullableStringPtr(entry.Email)),
+		Reason:    string(entry.Reason),
+		Source:    entry.Source,
 	})
 	if err != nil {
 		return err
@@ -1170,8 +1172,12 @@ func (s *Store) CreateSuppression(ctx context.Context, entry *domain.Suppression
 	return nil
 }
 
-func (s *Store) IsSuppressed(ctx context.Context, tenantID uuid.UUID, email string) (bool, error) {
-	return s.q.IsSuppressed(ctx, gen.IsSuppressedParams{TenantID: tenantID, Email: email})
+func (s *Store) IsSuppressed(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string) (bool, error) {
+	return s.q.IsSuppressed(ctx, gen.IsSuppressedParams{
+		TenantID:  tenantID,
+		Channel:   string(channel),
+		Recipient: recipient,
+	})
 }
 
 func (s *Store) ListSuppressions(ctx context.Context, tenantID uuid.UUID, reason *domain.SuppressionReason, page, perPage int) ([]domain.SuppressionEntry, int, error) {
@@ -1190,6 +1196,8 @@ func (s *Store) ListSuppressions(ctx context.Context, tenantID uuid.UUID, reason
 		res = append(res, toSuppressionEntryDomain(gen.MessagingSuppression{
 			ID:        r.ID,
 			TenantID:  r.TenantID,
+			Channel:   r.Channel,
+			Recipient: r.Recipient,
 			Email:     r.Email,
 			Reason:    r.Reason,
 			Source:    r.Source,
@@ -1204,6 +1212,10 @@ func (s *Store) DeleteSuppression(ctx context.Context, tenantID, id uuid.UUID) e
 	return s.q.DeleteSuppression(ctx, gen.DeleteSuppressionParams{TenantID: tenantID, ID: id})
 }
 
-func (s *Store) BulkCheck(ctx context.Context, tenantID uuid.UUID, emails []string) ([]string, error) {
-	return s.q.BulkCheckSuppression(ctx, gen.BulkCheckSuppressionParams{TenantID: tenantID, Column2: emails})
+func (s *Store) BulkCheck(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipients []string) ([]string, error) {
+	return s.q.BulkCheckSuppression(ctx, gen.BulkCheckSuppressionParams{
+		TenantID: tenantID,
+		Channel:  string(channel),
+		Column3:  recipients,
+	})
 }

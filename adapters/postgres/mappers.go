@@ -243,7 +243,9 @@ func toSuppressionEntryDomain(s gen.MessagingSuppression) domain.SuppressionEntr
 	return domain.SuppressionEntry{
 		ID:        s.ID,
 		TenantID:  s.TenantID,
-		Email:     s.Email,
+		Channel:   domain.Channel(s.Channel),
+		Recipient: s.Recipient,
+		Email:     pgTextToString(s.Email),
 		Reason:    domain.SuppressionReason(s.Reason),
 		Source:    s.Source,
 		CreatedAt: s.CreatedAt,
@@ -272,6 +274,13 @@ func pgTextToStringPtr(t pgtype.Text) *string {
 	}
 	res := t.String
 	return &res
+}
+
+func nullableStringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func pgTimestamptzToPtr(t pgtype.Timestamptz) *time.Time {

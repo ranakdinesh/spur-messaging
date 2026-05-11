@@ -10,31 +10,33 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bulkCheckSuppression = `-- name: BulkCheckSuppression :many
-SELECT email FROM messaging.suppressions
-WHERE tenant_id = $1 AND email = ANY($2::text[])
+SELECT recipient FROM messaging.suppressions
+WHERE tenant_id = $1 AND channel = $2 AND recipient = ANY($3::text[])
 `
 
 type BulkCheckSuppressionParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
-	Column2  []string  `json:"column_2"`
+	Channel  string    `json:"channel"`
+	Column3  []string  `json:"column_3"`
 }
 
 func (q *Queries) BulkCheckSuppression(ctx context.Context, arg BulkCheckSuppressionParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, bulkCheckSuppression, arg.TenantID, arg.Column2)
+	rows, err := q.db.Query(ctx, bulkCheckSuppression, arg.TenantID, arg.Channel, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var email string
-		if err := rows.Scan(&email); err != nil {
+		var recipient string
+		if err := rows.Scan(&recipient); err != nil {
 			return nil, err
 		}
-		items = append(items, email)
+		items = append(items, recipient)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -45,23 +47,27 @@ func (q *Queries) BulkCheckSuppression(ctx context.Context, arg BulkCheckSuppres
 const createSuppression = `-- name: CreateSuppression :one
 
 INSERT INTO messaging.suppressions (
-    tenant_id, email, reason, source
+    tenant_id, channel, recipient, email, reason, source
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, tenant_id, email, reason, source, created_at
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, tenant_id, channel, recipient, email, reason, source, created_at
 `
 
 type CreateSuppressionParams struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	Email    string    `json:"email"`
-	Reason   string    `json:"reason"`
-	Source   string    `json:"source"`
+	TenantID  uuid.UUID   `json:"tenant_id"`
+	Channel   string      `json:"channel"`
+	Recipient string      `json:"recipient"`
+	Email     pgtype.Text `json:"email"`
+	Reason    string      `json:"reason"`
+	Source    string      `json:"source"`
 }
 
 // sql/queries/suppressions.sql
 func (q *Queries) CreateSuppression(ctx context.Context, arg CreateSuppressionParams) (MessagingSuppression, error) {
 	row := q.db.QueryRow(ctx, createSuppression,
 		arg.TenantID,
+		arg.Channel,
+		arg.Recipient,
 		arg.Email,
 		arg.Reason,
 		arg.Source,
@@ -70,6 +76,8 @@ func (q *Queries) CreateSuppression(ctx context.Context, arg CreateSuppressionPa
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
+		&i.Channel,
+		&i.Recipient,
 		&i.Email,
 		&i.Reason,
 		&i.Source,
@@ -96,24 +104,25 @@ func (q *Queries) DeleteSuppression(ctx context.Context, arg DeleteSuppressionPa
 const isSuppressed = `-- name: IsSuppressed :one
 SELECT EXISTS(
     SELECT 1 FROM messaging.suppressions
-    WHERE tenant_id = $1 AND email = $2
+    WHERE tenant_id = $1 AND channel = $2 AND recipient = $3
 )
 `
 
 type IsSuppressedParams struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	Email    string    `json:"email"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Channel   string    `json:"channel"`
+	Recipient string    `json:"recipient"`
 }
 
 func (q *Queries) IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isSuppressed, arg.TenantID, arg.Email)
+	row := q.db.QueryRow(ctx, isSuppressed, arg.TenantID, arg.Channel, arg.Recipient)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
 }
 
 const listSuppressions = `-- name: ListSuppressions :many
-SELECT id, tenant_id, email, reason, source, created_at, count(*) OVER() as total_count
+SELECT id, tenant_id, channel, recipient, email, reason, source, created_at, count(*) OVER() as total_count
 FROM messaging.suppressions
 WHERE tenant_id = $1
 AND ($2::text IS NULL OR reason = $2)
@@ -129,13 +138,15 @@ type ListSuppressionsParams struct {
 }
 
 type ListSuppressionsRow struct {
-	ID         uuid.UUID `json:"id"`
-	TenantID   uuid.UUID `json:"tenant_id"`
-	Email      string    `json:"email"`
-	Reason     string    `json:"reason"`
-	Source     string    `json:"source"`
-	CreatedAt  time.Time `json:"created_at"`
-	TotalCount int64     `json:"total_count"`
+	ID         uuid.UUID   `json:"id"`
+	TenantID   uuid.UUID   `json:"tenant_id"`
+	Channel    string      `json:"channel"`
+	Recipient  string      `json:"recipient"`
+	Email      pgtype.Text `json:"email"`
+	Reason     string      `json:"reason"`
+	Source     string      `json:"source"`
+	CreatedAt  time.Time   `json:"created_at"`
+	TotalCount int64       `json:"total_count"`
 }
 
 func (q *Queries) ListSuppressions(ctx context.Context, arg ListSuppressionsParams) ([]ListSuppressionsRow, error) {
@@ -155,6 +166,8 @@ func (q *Queries) ListSuppressions(ctx context.Context, arg ListSuppressionsPara
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
+			&i.Channel,
+			&i.Recipient,
 			&i.Email,
 			&i.Reason,
 			&i.Source,

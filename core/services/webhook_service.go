@@ -250,7 +250,7 @@ func (s *WebhookService) processEmailEvent(ctx context.Context, event ports.Webh
 	case domain.EmailEventBounce:
 		// hard_bounce event -> auto-add email to suppression list (reason: hard_bounce)
 		if event.BounceType == "hard" {
-			err = s.suppressionSvc.AddToSuppression(ctx, msg.TenantID, event.Email, domain.SuppressionHardBounce)
+			err = s.suppressionSvc.AddToSuppression(ctx, msg.TenantID, domain.ChannelEmail, event.Email, domain.SuppressionHardBounce)
 			if err != nil {
 				s.log.Error("failed to auto-suppress email after hard bounce", "error", err, "email", event.Email)
 			}
@@ -260,7 +260,7 @@ func (s *WebhookService) processEmailEvent(ctx context.Context, event ports.Webh
 
 	case domain.EmailEventComplaint:
 		// complaint event -> auto-add to suppression (reason: complaint) AND auto-add to unsubscribe (scope: global)
-		err = s.suppressionSvc.AddToSuppression(ctx, msg.TenantID, event.Email, domain.SuppressionComplaint)
+		err = s.suppressionSvc.AddToSuppression(ctx, msg.TenantID, domain.ChannelEmail, event.Email, domain.SuppressionComplaint)
 		if err != nil {
 			s.log.Error("failed to auto-suppress email after complaint", "error", err, "email", event.Email)
 		}
@@ -295,7 +295,7 @@ func (s *WebhookService) handleSoftBounce(ctx context.Context, tenantID uuid.UUI
 	}
 
 	if count >= 3 {
-		err = s.suppressionSvc.AddToSuppression(ctx, tenantID, email, domain.SuppressionHardBounce)
+		err = s.suppressionSvc.AddToSuppression(ctx, tenantID, domain.ChannelEmail, email, domain.SuppressionHardBounce)
 		if err != nil {
 			s.log.Error("failed to auto-suppress email after 3 soft bounces", "error", err, "email", email)
 		}

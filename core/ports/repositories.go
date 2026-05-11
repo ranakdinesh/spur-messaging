@@ -130,8 +130,8 @@ type UnsubscribeRepository interface {
 
 type SuppressionRepository interface {
 	Create(ctx context.Context, entry *domain.SuppressionEntry) error
-	IsSuppressed(ctx context.Context, tenantID uuid.UUID, email string) (bool, error)
+	IsSuppressed(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string) (bool, error)
 	List(ctx context.Context, tenantID uuid.UUID, reason *domain.SuppressionReason, page, perPage int) ([]domain.SuppressionEntry, int, error)
-	Delete(ctx context.Context, tenantID, id uuid.UUID) error                             // remove from suppression (admin only)
-	BulkCheck(ctx context.Context, tenantID uuid.UUID, emails []string) ([]string, error) // returns suppressed emails from list
+	Delete(ctx context.Context, tenantID, id uuid.UUID) error // remove from suppression (admin only)
+	BulkCheck(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipients []string) ([]string, error)
 }

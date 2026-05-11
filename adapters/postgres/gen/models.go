@@ -149,12 +149,14 @@ type MessagingSegmentContact struct {
 }
 
 type MessagingSuppression struct {
-	ID        uuid.UUID `json:"id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
-	Email     string    `json:"email"`
-	Reason    string    `json:"reason"`
-	Source    string    `json:"source"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID   `json:"id"`
+	TenantID  uuid.UUID   `json:"tenant_id"`
+	Channel   string      `json:"channel"`
+	Recipient string      `json:"recipient"`
+	Email     pgtype.Text `json:"email"`
+	Reason    string      `json:"reason"`
+	Source    string      `json:"source"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 type MessagingTemplate struct {

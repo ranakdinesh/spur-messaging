@@ -2,15 +2,15 @@
 
 -- name: CreateSuppression :one
 INSERT INTO messaging.suppressions (
-    tenant_id, email, reason, source
+    tenant_id, channel, recipient, email, reason, source
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6
 ) RETURNING *;
 
 -- name: IsSuppressed :one
 SELECT EXISTS(
     SELECT 1 FROM messaging.suppressions
-    WHERE tenant_id = $1 AND email = $2
+    WHERE tenant_id = $1 AND channel = $2 AND recipient = $3
 );
 
 -- name: ListSuppressions :many
@@ -26,5 +26,5 @@ DELETE FROM messaging.suppressions
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: BulkCheckSuppression :many
-SELECT email FROM messaging.suppressions
-WHERE tenant_id = $1 AND email = ANY($2::text[]);
+SELECT recipient FROM messaging.suppressions
+WHERE tenant_id = $1 AND channel = $2 AND recipient = ANY($3::text[]);

@@ -119,15 +119,16 @@ func (e *CampaignExecutor) ExecuteCampaign(ctx context.Context, campaign domain.
 			continue // Already sent or queued
 		}
 
-		// 1. Check suppression + unsubscribe for email
-		if campaign.Channel == domain.ChannelEmail && contact.Email != nil {
-			suppressed, _ := e.suppressionSvc.IsSuppressed(ctx, campaign.TenantID, *contact.Email)
+		// 1. Check suppression for every channel and unsubscribe for email.
+		if e.suppressionSvc != nil {
+			suppressed, _ := e.suppressionSvc.IsSuppressed(ctx, campaign.TenantID, campaign.Channel, recipient)
 			if suppressed {
 				stats.Failed++
 				continue
 			}
-
-			unsubscribed, _ := e.unsubscribeSvc.IsUnsubscribed(ctx, campaign.TenantID, *contact.Email)
+		}
+		if campaign.Channel == domain.ChannelEmail && e.unsubscribeSvc != nil {
+			unsubscribed, _ := e.unsubscribeSvc.IsUnsubscribed(ctx, campaign.TenantID, recipient)
 			if unsubscribed {
 				stats.Failed++
 				continue

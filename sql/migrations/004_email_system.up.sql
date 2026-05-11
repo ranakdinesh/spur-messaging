@@ -65,14 +65,17 @@ CREATE INDEX idx_unsubscribes_tenant_email ON messaging.unsubscribes (tenant_id,
 CREATE TABLE messaging.suppressions (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id   UUID NOT NULL,
-    email       TEXT NOT NULL,
+    channel     TEXT NOT NULL DEFAULT 'email' CHECK (channel IN ('whatsapp', 'sms', 'email')),
+    recipient   TEXT NOT NULL,
+    email       TEXT,
     reason      TEXT NOT NULL CHECK (reason IN ('hard_bounce', 'complaint', 'manual', 'invalid')),
     source      TEXT NOT NULL DEFAULT 'manual', -- 'bounce_webhook', 'complaint_webhook', 'manual', 'import'
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id, email)
+    UNIQUE (tenant_id, channel, recipient)
 );
 
-CREATE INDEX idx_suppressions_tenant_email ON messaging.suppressions (tenant_id, email);
+CREATE INDEX idx_suppressions_tenant_recipient ON messaging.suppressions (tenant_id, channel, recipient);
+CREATE INDEX idx_suppressions_tenant_email ON messaging.suppressions (tenant_id, email) WHERE email IS NOT NULL;
 
 -- RLS
 ALTER TABLE messaging.email_templates ENABLE ROW LEVEL SECURITY;

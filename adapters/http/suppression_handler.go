@@ -71,15 +71,43 @@ func (h *SuppressionHandler) AddToSuppression(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		Email  string                   `json:"email"`
-		Reason domain.SuppressionReason `json:"reason"`
+		Channel   domain.Channel           `json:"channel"`
+		Recipient string                   `json:"recipient"`
+		Email     string                   `json:"email"`
+		Reason    domain.SuppressionReason `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
 		return
 	}
 
-	if err := h.service.AddToSuppression(r.Context(), tenantID, req.Email, req.Reason); err != nil {
+	if req.Channel == "" {
+		req.Channel = domain.ChannelEmail
+	}
+	if req.Recipient == "" {
+		req.Recipient = req.Email
+	}
+	if err := validateChannel(req.Channel); err != nil {
+		RespondError(w, err)
+		return
+	}
+	if req.Channel == domain.ChannelEmail {
+		email, err := validateEmail(req.Recipient)
+		if err != nil {
+			RespondError(w, err)
+			return
+		}
+		req.Recipient = email
+	} else {
+		phone, err := validatePhone(req.Recipient)
+		if err != nil {
+			RespondError(w, err)
+			return
+		}
+		req.Recipient = phone
+	}
+
+	if err := h.service.AddToSuppression(r.Context(), tenantID, req.Channel, req.Recipient, req.Reason); err != nil {
 		RespondError(w, err)
 		return
 	}
@@ -116,14 +144,44 @@ func (h *SuppressionHandler) BulkCheckSuppression(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		Emails []string `json:"emails"`
+		Channel    domain.Channel `json:"channel"`
+		Recipients []string       `json:"recipients"`
+		Emails     []string       `json:"emails"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
 		return
 	}
 
-	suppressed, err := h.service.BulkCheck(r.Context(), tenantID, req.Emails)
+	if req.Channel == "" {
+		req.Channel = domain.ChannelEmail
+	}
+	if len(req.Recipients) == 0 {
+		req.Recipients = req.Emails
+	}
+	if err := validateChannel(req.Channel); err != nil {
+		RespondError(w, err)
+		return
+	}
+	for i := range req.Recipients {
+		if req.Channel == domain.ChannelEmail {
+			email, err := validateEmail(req.Recipients[i])
+			if err != nil {
+				RespondError(w, err)
+				return
+			}
+			req.Recipients[i] = email
+		} else {
+			phone, err := validatePhone(req.Recipients[i])
+			if err != nil {
+				RespondError(w, err)
+				return
+			}
+			req.Recipients[i] = phone
+		}
+	}
+
+	suppressed, err := h.service.BulkCheck(r.Context(), tenantID, req.Channel, req.Recipients)
 	if err != nil {
 		RespondError(w, err)
 		return
