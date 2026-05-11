@@ -107,6 +107,78 @@ func TestContactServiceOptInAlreadyOptedInDoesNotDuplicateRecord(t *testing.T) {
 	}
 }
 
+func TestContactServiceDoubleOptInRequiresConfirmation(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	expiresAt := time.Now().Add(24 * time.Hour)
+	repo := &contactConsentRepoStub{
+		contact: &domain.Contact{
+			ID:            contactID,
+			TenantID:      tenantID,
+			OptInWhatsApp: domain.OptInStatusPending,
+		},
+	}
+	svc := NewContactService(repo)
+
+	if err := svc.OptIn(ctx, tenantID, contactID, domain.ChannelWhatsApp, ports.ConsentEvidence{
+		Source:              "website_form",
+		DoubleOptInRequired: true,
+		ExpiresAt:           &expiresAt,
+	}); err != nil {
+		t.Fatalf("OptIn returned error: %v", err)
+	}
+	if repo.updatedStatus != domain.OptInStatusDoubleOptInPending {
+		t.Fatalf("expected double_opt_in_pending update, got %q", repo.updatedStatus)
+	}
+	if len(repo.records) != 1 || repo.records[0].Status != domain.OptInStatusDoubleOptInPending {
+		t.Fatalf("expected pending consent record, got %#v", repo.records)
+	}
+	if repo.records[0].ExpiresAt == nil {
+		t.Fatal("expected consent expiry to be stored")
+	}
+
+	if err := svc.ConfirmOptIn(ctx, tenantID, contactID, domain.ChannelWhatsApp, ports.ConsentEvidence{Proof: "otp:123456"}); err != nil {
+		t.Fatalf("ConfirmOptIn returned error: %v", err)
+	}
+	if repo.updatedStatus != domain.OptInStatusOptedIn {
+		t.Fatalf("expected opted_in update, got %q", repo.updatedStatus)
+	}
+	if len(repo.records) != 2 || repo.records[1].Status != domain.OptInStatusOptedIn || repo.records[1].ConfirmedAt == nil {
+		t.Fatalf("expected confirmed consent record, got %#v", repo.records)
+	}
+}
+
+func TestContactServiceInboundKeywordUpdatesConsent(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	phone := "+971501234567"
+	repo := &contactConsentRepoStub{
+		contact: &domain.Contact{
+			ID:            contactID,
+			TenantID:      tenantID,
+			Phone:         &phone,
+			OptInWhatsApp: domain.OptInStatusOptedIn,
+		},
+	}
+	svc := NewContactService(repo)
+
+	action, err := svc.HandleInboundConsentKeyword(ctx, tenantID, domain.ChannelWhatsApp, "971501234567", "إلغاء الاشتراك", ports.ConsentEvidence{Locale: "ar"})
+	if err != nil {
+		t.Fatalf("HandleInboundConsentKeyword returned error: %v", err)
+	}
+	if action != domain.ConsentKeywordOptOut {
+		t.Fatalf("action = %q, want %q", action, domain.ConsentKeywordOptOut)
+	}
+	if repo.updatedStatus != domain.OptInStatusOptedOut {
+		t.Fatalf("expected opted_out update, got %q", repo.updatedStatus)
+	}
+	if len(repo.records) != 1 || repo.records[0].Keyword != "إلغاء الاشتراك" || repo.records[0].Locale != "ar" {
+		t.Fatalf("keyword evidence was not stored: %#v", repo.records)
+	}
+}
+
 type contactConsentRepoStub struct {
 	contact       *domain.Contact
 	updatedStatus domain.OptInStatus
@@ -117,7 +189,10 @@ func (r *contactConsentRepoStub) Create(context.Context, *domain.Contact) error 
 func (r *contactConsentRepoStub) GetByID(context.Context, uuid.UUID, uuid.UUID) (*domain.Contact, error) {
 	return r.contact, nil
 }
-func (r *contactConsentRepoStub) GetByPhone(context.Context, uuid.UUID, string) (*domain.Contact, error) {
+func (r *contactConsentRepoStub) GetByPhone(_ context.Context, _ uuid.UUID, phone string) (*domain.Contact, error) {
+	if r.contact != nil && r.contact.Phone != nil && *r.contact.Phone == phone {
+		return r.contact, nil
+	}
 	return nil, domain.ErrNotFound
 }
 func (r *contactConsentRepoStub) GetByEmail(context.Context, uuid.UUID, string) (*domain.Contact, error) {

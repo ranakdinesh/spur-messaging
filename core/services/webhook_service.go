@@ -24,6 +24,7 @@ type Logger interface {
 type WebhookService struct {
 	messageRepo      ports.MessageRepository
 	conversationRepo ports.ConversationRepository
+	contactSvc       ports.ContactService
 	emailEventRepo   ports.EmailEventRepository
 	suppressionSvc   ports.SuppressionService
 	unsubscribeSvc   ports.UnsubscribeService
@@ -36,6 +37,7 @@ type WebhookService struct {
 func NewWebhookService(
 	messageRepo ports.MessageRepository,
 	conversationRepo ports.ConversationRepository,
+	contactSvc ports.ContactService,
 	emailEventRepo ports.EmailEventRepository,
 	suppressionSvc ports.SuppressionService,
 	unsubscribeSvc ports.UnsubscribeService,
@@ -47,6 +49,7 @@ func NewWebhookService(
 	return &WebhookService{
 		messageRepo:      messageRepo,
 		conversationRepo: conversationRepo,
+		contactSvc:       contactSvc,
 		emailEventRepo:   emailEventRepo,
 		suppressionSvc:   suppressionSvc,
 		unsubscribeSvc:   unsubscribeSvc,
@@ -163,6 +166,28 @@ func (s *WebhookService) processWhatsAppIncoming(ctx context.Context, tenantID u
 		return
 	}
 	s.deliverMessageEvent(ctx, tenantID, domain.WebhookEventMessageReplied, inbound, timestamp)
+	if msg.Text != nil {
+		s.processInboundConsentKeyword(ctx, tenantID, domain.ChannelWhatsApp, msg.From, msg.Text.Body)
+	}
+}
+
+func (s *WebhookService) processInboundConsentKeyword(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient, text string) {
+	if s.contactSvc == nil {
+		return
+	}
+	action, err := s.contactSvc.HandleInboundConsentKeyword(ctx, tenantID, channel, recipient, text, ports.ConsentEvidence{
+		Source:  "inbound_keyword",
+		Keyword: text,
+	})
+	if err != nil {
+		if action != domain.ConsentKeywordUnknown {
+			s.log.Warn("failed to process inbound consent keyword", "error", err, "channel", channel, "recipient", recipient, "action", action)
+		}
+		return
+	}
+	if action != domain.ConsentKeywordUnknown {
+		s.log.Info("processed inbound consent keyword", "channel", channel, "recipient", recipient, "action", action)
+	}
 }
 
 func mapWhatsAppStatus(s string) domain.MessageStatus {

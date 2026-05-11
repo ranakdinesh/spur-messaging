@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -268,20 +269,61 @@ func (h *ContactHandler) OptIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Channel domain.Channel        `json:"channel"`
-		Consent ports.ConsentEvidence `json:"consent"`
-		Source  string                `json:"source"`
-		Purpose string                `json:"purpose"`
-		Proof   string                `json:"proof"`
-		Brand   string                `json:"brand"`
+		Channel             domain.Channel        `json:"channel"`
+		Consent             ports.ConsentEvidence `json:"consent"`
+		Source              string                `json:"source"`
+		Purpose             string                `json:"purpose"`
+		Proof               string                `json:"proof"`
+		Brand               string                `json:"brand"`
+		Keyword             string                `json:"keyword"`
+		Locale              string                `json:"locale"`
+		ExpiresAt           *time.Time            `json:"expires_at"`
+		DoubleOptInRequired bool                  `json:"double_opt_in_required"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
 		return
 	}
 
-	consent := normalizeConsentEvidence(req.Consent, req.Source, req.Purpose, req.Proof, req.Brand, r)
+	consent := normalizeConsentEvidence(req.Consent, req.Source, req.Purpose, req.Proof, req.Brand, req.Keyword, req.Locale, req.ExpiresAt, req.DoubleOptInRequired, r)
 	if err := h.service.OptIn(r.Context(), tenantID, id, req.Channel, consent); err != nil {
+		RespondError(w, err)
+		return
+	}
+
+	RespondOK(w, map[string]string{"status": "opted_in"})
+}
+
+func (h *ContactHandler) ConfirmOptIn(w http.ResponseWriter, r *http.Request) {
+	tenantID := authctx.TenantID(r.Context())
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
+		RespondError(w, domain.ErrForbidden)
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		RespondValidationError(w, "id", "invalid ID format")
+		return
+	}
+
+	var req struct {
+		Channel domain.Channel        `json:"channel"`
+		Consent ports.ConsentEvidence `json:"consent"`
+		Source  string                `json:"source"`
+		Purpose string                `json:"purpose"`
+		Proof   string                `json:"proof"`
+		Brand   string                `json:"brand"`
+		Keyword string                `json:"keyword"`
+		Locale  string                `json:"locale"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, domain.ErrInvalidInput)
+		return
+	}
+
+	consent := normalizeConsentEvidence(req.Consent, req.Source, req.Purpose, req.Proof, req.Brand, req.Keyword, req.Locale, nil, false, r)
+	if err := h.service.ConfirmOptIn(r.Context(), tenantID, id, req.Channel, consent); err != nil {
 		RespondError(w, err)
 		return
 	}
@@ -309,13 +351,15 @@ func (h *ContactHandler) OptOut(w http.ResponseWriter, r *http.Request) {
 		Purpose string                `json:"purpose"`
 		Proof   string                `json:"proof"`
 		Brand   string                `json:"brand"`
+		Keyword string                `json:"keyword"`
+		Locale  string                `json:"locale"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, domain.ErrInvalidInput)
 		return
 	}
 
-	consent := normalizeConsentEvidence(req.Consent, req.Source, req.Purpose, req.Proof, req.Brand, r)
+	consent := normalizeConsentEvidence(req.Consent, req.Source, req.Purpose, req.Proof, req.Brand, req.Keyword, req.Locale, nil, false, r)
 	if err := h.service.OptOut(r.Context(), tenantID, id, req.Channel, consent); err != nil {
 		RespondError(w, err)
 		return
@@ -361,7 +405,7 @@ func (h *ContactHandler) ListConsentRecords(w http.ResponseWriter, r *http.Reque
 	RespondOK(w, records)
 }
 
-func normalizeConsentEvidence(consent ports.ConsentEvidence, source, purpose, proof, brand string, r *http.Request) ports.ConsentEvidence {
+func normalizeConsentEvidence(consent ports.ConsentEvidence, source, purpose, proof, brand, keyword, locale string, expiresAt *time.Time, doubleOptInRequired bool, r *http.Request) ports.ConsentEvidence {
 	if consent.Source == "" {
 		consent.Source = source
 	}
@@ -373,6 +417,18 @@ func normalizeConsentEvidence(consent ports.ConsentEvidence, source, purpose, pr
 	}
 	if consent.Brand == "" {
 		consent.Brand = brand
+	}
+	if consent.Keyword == "" {
+		consent.Keyword = keyword
+	}
+	if consent.Locale == "" {
+		consent.Locale = locale
+	}
+	if consent.ExpiresAt == nil {
+		consent.ExpiresAt = expiresAt
+	}
+	if !consent.DoubleOptInRequired {
+		consent.DoubleOptInRequired = doubleOptInRequired
 	}
 	if consent.IPAddress == "" {
 		consent.IPAddress = clientIP(r)

@@ -2,9 +2,10 @@
 
 -- name: CreateConsentRecord :one
 INSERT INTO messaging.consent_records (
-    tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand
+    tenant_id, contact_id, channel, status, source, purpose, proof, ip_address,
+    user_agent, brand, keyword, locale, expires_at, confirmed_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 ) RETURNING *;
 
 -- name: ListConsentRecords :many

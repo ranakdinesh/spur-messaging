@@ -98,9 +98,9 @@ CREATE TABLE messaging.contacts (
     name            TEXT,
     attributes      JSONB NOT NULL DEFAULT '{}',
     tags            TEXT[] NOT NULL DEFAULT '{}',
-    opt_in_whatsapp TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_whatsapp IN ('pending', 'opted_in', 'opted_out')),
-    opt_in_sms      TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_sms IN ('pending', 'opted_in', 'opted_out')),
-    opt_in_email    TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_email IN ('pending', 'opted_in', 'opted_out')),
+    opt_in_whatsapp TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_whatsapp IN ('pending', 'double_opt_in_pending', 'opted_in', 'opted_out')),
+    opt_in_sms      TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_sms IN ('pending', 'double_opt_in_pending', 'opted_in', 'opted_out')),
+    opt_in_email    TEXT NOT NULL DEFAULT 'pending' CHECK (opt_in_email IN ('pending', 'double_opt_in_pending', 'opted_in', 'opted_out')),
     opted_in_at     TIMESTAMPTZ,
     opted_out_at    TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -116,18 +116,23 @@ CREATE TABLE messaging.consent_records (
     tenant_id  UUID NOT NULL,
     contact_id UUID NOT NULL REFERENCES messaging.contacts(id) ON DELETE CASCADE,
     channel    TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'email')),
-    status     TEXT NOT NULL CHECK (status IN ('opted_in', 'opted_out')),
+    status     TEXT NOT NULL CHECK (status IN ('double_opt_in_pending', 'opted_in', 'opted_out')),
     source     TEXT NOT NULL DEFAULT 'manual',
     purpose    TEXT NOT NULL DEFAULT '',
     proof      TEXT NOT NULL DEFAULT '',
     ip_address TEXT NOT NULL DEFAULT '',
     user_agent TEXT NOT NULL DEFAULT '',
     brand      TEXT NOT NULL DEFAULT '',
+    keyword    TEXT NOT NULL DEFAULT '',
+    locale     TEXT NOT NULL DEFAULT '',
+    expires_at TIMESTAMPTZ,
+    confirmed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_consent_records_contact ON messaging.consent_records (tenant_id, contact_id, created_at DESC);
 CREATE INDEX idx_consent_records_channel ON messaging.consent_records (tenant_id, channel, status, created_at DESC);
+CREATE INDEX idx_consent_records_expiry ON messaging.consent_records (tenant_id, channel, expires_at) WHERE expires_at IS NOT NULL;
 
 -- Messages (outbound and inbound)
 CREATE TABLE messaging.conversations (

@@ -110,18 +110,22 @@ func toContactDomain(c gen.MessagingContact) domain.Contact {
 
 func toConsentRecordDomain(r gen.MessagingConsentRecord) domain.ConsentRecord {
 	return domain.ConsentRecord{
-		ID:        r.ID,
-		TenantID:  r.TenantID,
-		ContactID: r.ContactID,
-		Channel:   domain.Channel(r.Channel),
-		Status:    domain.OptInStatus(r.Status),
-		Source:    r.Source,
-		Purpose:   r.Purpose,
-		Proof:     r.Proof,
-		IPAddress: r.IpAddress,
-		UserAgent: r.UserAgent,
-		Brand:     r.Brand,
-		CreatedAt: r.CreatedAt,
+		ID:          r.ID,
+		TenantID:    r.TenantID,
+		ContactID:   r.ContactID,
+		Channel:     domain.Channel(r.Channel),
+		Status:      domain.OptInStatus(r.Status),
+		Source:      r.Source,
+		Purpose:     r.Purpose,
+		Proof:       r.Proof,
+		IPAddress:   r.IpAddress,
+		UserAgent:   r.UserAgent,
+		Brand:       r.Brand,
+		Keyword:     r.Keyword,
+		Locale:      r.Locale,
+		ExpiresAt:   pgTimestamptzToPtr(r.ExpiresAt),
+		ConfirmedAt: pgTimestamptzToPtr(r.ConfirmedAt),
+		CreatedAt:   r.CreatedAt,
 	}
 }
 

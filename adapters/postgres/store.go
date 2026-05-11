@@ -623,16 +623,20 @@ func (s *Store) UpdateOptIn(ctx context.Context, tenantID, id uuid.UUID, channel
 
 func (s *Store) CreateConsentRecord(ctx context.Context, record *domain.ConsentRecord) error {
 	row, err := s.q.CreateConsentRecord(ctx, gen.CreateConsentRecordParams{
-		TenantID:  record.TenantID,
-		ContactID: record.ContactID,
-		Channel:   string(record.Channel),
-		Status:    string(record.Status),
-		Source:    record.Source,
-		Purpose:   record.Purpose,
-		Proof:     record.Proof,
-		IpAddress: record.IPAddress,
-		UserAgent: record.UserAgent,
-		Brand:     record.Brand,
+		TenantID:    record.TenantID,
+		ContactID:   record.ContactID,
+		Channel:     string(record.Channel),
+		Status:      string(record.Status),
+		Source:      record.Source,
+		Purpose:     record.Purpose,
+		Proof:       record.Proof,
+		IpAddress:   record.IPAddress,
+		UserAgent:   record.UserAgent,
+		Brand:       record.Brand,
+		Keyword:     record.Keyword,
+		Locale:      record.Locale,
+		ExpiresAt:   fromTimePtr(record.ExpiresAt),
+		ConfirmedAt: fromTimePtr(record.ConfirmedAt),
 	})
 	if err != nil {
 		return err

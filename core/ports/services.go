@@ -123,7 +123,9 @@ type ContactService interface {
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 	BulkImport(ctx context.Context, tenantID uuid.UUID, contacts []CreateContactRequest) (BulkImportResult, error)
 	OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ConsentEvidence) error
+	ConfirmOptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ConsentEvidence) error
 	OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ConsentEvidence) error
+	HandleInboundConsentKeyword(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient, text string, consent ConsentEvidence) (domain.ConsentKeywordAction, error)
 	ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error)
 }
 
@@ -144,12 +146,17 @@ type UpdateContactRequest struct {
 }
 
 type ConsentEvidence struct {
-	Source    string `json:"source"`
-	Purpose   string `json:"purpose"`
-	Proof     string `json:"proof"`
-	IPAddress string `json:"ip_address"`
-	UserAgent string `json:"user_agent"`
-	Brand     string `json:"brand"`
+	Source              string     `json:"source"`
+	Purpose             string     `json:"purpose"`
+	Proof               string     `json:"proof"`
+	IPAddress           string     `json:"ip_address"`
+	UserAgent           string     `json:"user_agent"`
+	Brand               string     `json:"brand"`
+	Keyword             string     `json:"keyword"`
+	Locale              string     `json:"locale"`
+	ExpiresAt           *time.Time `json:"expires_at"`
+	ConfirmedAt         *time.Time `json:"confirmed_at"`
+	DoubleOptInRequired bool       `json:"double_opt_in_required"`
 }
 
 type WebhookService interface {

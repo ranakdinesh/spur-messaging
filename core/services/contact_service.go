@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -214,11 +215,64 @@ func (s *ContactService) OptIn(ctx context.Context, tenantID, id uuid.UUID, chan
 	if currentStatus == domain.OptInStatusOptedIn {
 		return nil
 	}
+	if consent.ExpiresAt != nil && consent.ExpiresAt.Before(time.Now()) {
+		return domain.NewValidationError("expires_at", "consent expiry must be in the future")
+	}
+	targetStatus := domain.OptInStatusOptedIn
+	if consent.DoubleOptInRequired {
+		targetStatus = domain.OptInStatusDoubleOptInPending
+	}
 
+	if err := s.repo.UpdateOptIn(ctx, tenantID, id, channel, targetStatus); err != nil {
+		return err
+	}
+	return s.repo.CreateConsentRecord(ctx, buildConsentRecord(tenantID, id, channel, targetStatus, consent))
+}
+
+func (s *ContactService) ConfirmOptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ports.ConsentEvidence) error {
+	contact, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	currentStatus, err := contactOptInStatus(contact, channel)
+	if err != nil {
+		return err
+	}
+	if currentStatus == domain.OptInStatusOptedIn {
+		return nil
+	}
+	if currentStatus != domain.OptInStatusDoubleOptInPending && currentStatus != domain.OptInStatusPending {
+		return domain.NewValidationError("status", "contact is not waiting for opt-in confirmation")
+	}
+	now := time.Now()
+	if expired, err := s.pendingConsentExpired(ctx, tenantID, id, channel, now); err != nil {
+		return err
+	} else if expired {
+		return domain.NewValidationError("expires_at", "opt-in confirmation has expired")
+	}
+	consent.DoubleOptInRequired = false
+	consent.ConfirmedAt = &now
+	if consent.Source == "" {
+		consent.Source = "double_opt_in_confirmed"
+	}
 	if err := s.repo.UpdateOptIn(ctx, tenantID, id, channel, domain.OptInStatusOptedIn); err != nil {
 		return err
 	}
 	return s.repo.CreateConsentRecord(ctx, buildConsentRecord(tenantID, id, channel, domain.OptInStatusOptedIn, consent))
+}
+
+func (s *ContactService) pendingConsentExpired(ctx context.Context, tenantID, contactID uuid.UUID, channel domain.Channel, now time.Time) (bool, error) {
+	records, err := s.repo.ListConsentRecords(ctx, tenantID, contactID, 1, 10)
+	if err != nil {
+		return false, err
+	}
+	for _, record := range records {
+		if record.Channel != channel || record.Status != domain.OptInStatusDoubleOptInPending {
+			continue
+		}
+		return record.ExpiresAt != nil && record.ExpiresAt.Before(now), nil
+	}
+	return false, nil
 }
 
 func (s *ContactService) OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ports.ConsentEvidence) error {
@@ -241,6 +295,30 @@ func (s *ContactService) OptOut(ctx context.Context, tenantID, id uuid.UUID, cha
 		return err
 	}
 	return s.repo.CreateConsentRecord(ctx, buildConsentRecord(tenantID, id, channel, domain.OptInStatusOptedOut, consent))
+}
+
+func (s *ContactService) HandleInboundConsentKeyword(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient, text string, consent ports.ConsentEvidence) (domain.ConsentKeywordAction, error) {
+	action := domain.DetectConsentKeyword(text)
+	if action == domain.ConsentKeywordUnknown {
+		return action, nil
+	}
+	contact, err := s.contactByRecipient(ctx, tenantID, channel, recipient)
+	if err != nil {
+		return action, err
+	}
+	consent.Keyword = strings.TrimSpace(text)
+	if consent.Source == "" {
+		consent.Source = "inbound_keyword"
+	}
+	switch action {
+	case domain.ConsentKeywordOptIn:
+		consent.DoubleOptInRequired = false
+		return action, s.OptIn(ctx, tenantID, contact.ID, channel, consent)
+	case domain.ConsentKeywordOptOut:
+		return action, s.OptOut(ctx, tenantID, contact.ID, channel, consent)
+	default:
+		return action, nil
+	}
 }
 
 func (s *ContactService) ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error) {
@@ -269,23 +347,46 @@ func contactOptInStatus(contact *domain.Contact, channel domain.Channel) (domain
 	}
 }
 
+func (s *ContactService) contactByRecipient(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string) (*domain.Contact, error) {
+	recipient = strings.TrimSpace(recipient)
+	switch channel {
+	case domain.ChannelWhatsApp, domain.ChannelSMS:
+		contact, err := s.repo.GetByPhone(ctx, tenantID, recipient)
+		if err == nil {
+			return contact, nil
+		}
+		if !strings.HasPrefix(recipient, "+") {
+			return s.repo.GetByPhone(ctx, tenantID, "+"+recipient)
+		}
+		return nil, err
+	case domain.ChannelEmail:
+		return s.repo.GetByEmail(ctx, tenantID, recipient)
+	default:
+		return nil, domain.NewValidationError("channel", "channel must be whatsapp, sms, or email")
+	}
+}
+
 func buildConsentRecord(tenantID, contactID uuid.UUID, channel domain.Channel, status domain.OptInStatus, evidence ports.ConsentEvidence) *domain.ConsentRecord {
 	source := evidence.Source
 	if source == "" {
 		source = "manual"
 	}
 	return &domain.ConsentRecord{
-		ID:        uuid.New(),
-		TenantID:  tenantID,
-		ContactID: contactID,
-		Channel:   channel,
-		Status:    status,
-		Source:    source,
-		Purpose:   evidence.Purpose,
-		Proof:     evidence.Proof,
-		IPAddress: evidence.IPAddress,
-		UserAgent: evidence.UserAgent,
-		Brand:     evidence.Brand,
-		CreatedAt: time.Now(),
+		ID:          uuid.New(),
+		TenantID:    tenantID,
+		ContactID:   contactID,
+		Channel:     channel,
+		Status:      status,
+		Source:      source,
+		Purpose:     evidence.Purpose,
+		Proof:       evidence.Proof,
+		IPAddress:   evidence.IPAddress,
+		UserAgent:   evidence.UserAgent,
+		Brand:       evidence.Brand,
+		Keyword:     evidence.Keyword,
+		Locale:      evidence.Locale,
+		ExpiresAt:   evidence.ExpiresAt,
+		ConfirmedAt: evidence.ConfirmedAt,
+		CreatedAt:   time.Now(),
 	}
 }

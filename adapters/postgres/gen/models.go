@@ -31,18 +31,22 @@ type MessagingCampaign struct {
 }
 
 type MessagingConsentRecord struct {
-	ID        uuid.UUID `json:"id"`
-	TenantID  uuid.UUID `json:"tenant_id"`
-	ContactID uuid.UUID `json:"contact_id"`
-	Channel   string    `json:"channel"`
-	Status    string    `json:"status"`
-	Source    string    `json:"source"`
-	Purpose   string    `json:"purpose"`
-	Proof     string    `json:"proof"`
-	IpAddress string    `json:"ip_address"`
-	UserAgent string    `json:"user_agent"`
-	Brand     string    `json:"brand"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID          `json:"id"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
+	ContactID   uuid.UUID          `json:"contact_id"`
+	Channel     string             `json:"channel"`
+	Status      string             `json:"status"`
+	Source      string             `json:"source"`
+	Purpose     string             `json:"purpose"`
+	Proof       string             `json:"proof"`
+	IpAddress   string             `json:"ip_address"`
+	UserAgent   string             `json:"user_agent"`
+	Brand       string             `json:"brand"`
+	Keyword     string             `json:"keyword"`
+	Locale      string             `json:"locale"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt   time.Time          `json:"created_at"`
 }
 
 type MessagingContact struct {

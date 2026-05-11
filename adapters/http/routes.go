@@ -69,15 +69,16 @@ func RegisterRoutes(r chi.Router,
 		r.Post("/conversations/{id}/notes", convH.AddNote)       // messaging:conversations:write
 
 		// Contacts
-		r.Post("/contacts", contactH.CreateContact)                   // messaging:contacts:write
-		r.Get("/contacts", contactH.ListContacts)                     // messaging:contacts:read
-		r.Get("/contacts/{id}", contactH.GetContact)                  // messaging:contacts:read
-		r.Put("/contacts/{id}", contactH.UpdateContact)               // messaging:contacts:write
-		r.Delete("/contacts/{id}", contactH.DeleteContact)            // messaging:contacts:write
-		r.Post("/contacts/import", contactH.BulkImport)               // messaging:contacts:import
-		r.Post("/contacts/{id}/opt-in", contactH.OptIn)               // messaging:contacts:manage_consent
-		r.Post("/contacts/{id}/opt-out", contactH.OptOut)             // messaging:contacts:manage_consent
-		r.Get("/contacts/{id}/consents", contactH.ListConsentRecords) // messaging:contacts:read
+		r.Post("/contacts", contactH.CreateContact)                    // messaging:contacts:write
+		r.Get("/contacts", contactH.ListContacts)                      // messaging:contacts:read
+		r.Get("/contacts/{id}", contactH.GetContact)                   // messaging:contacts:read
+		r.Put("/contacts/{id}", contactH.UpdateContact)                // messaging:contacts:write
+		r.Delete("/contacts/{id}", contactH.DeleteContact)             // messaging:contacts:write
+		r.Post("/contacts/import", contactH.BulkImport)                // messaging:contacts:import
+		r.Post("/contacts/{id}/opt-in", contactH.OptIn)                // messaging:contacts:manage_consent
+		r.Post("/contacts/{id}/confirm-opt-in", contactH.ConfirmOptIn) // messaging:contacts:manage_consent
+		r.Post("/contacts/{id}/opt-out", contactH.OptOut)              // messaging:contacts:manage_consent
+		r.Get("/contacts/{id}/consents", contactH.ListConsentRecords)  // messaging:contacts:read
 
 		// Segments
 		r.Post("/segments", segmentH.CreateSegment)                // messaging:segments:write

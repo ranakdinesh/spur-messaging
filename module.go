@@ -183,7 +183,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailSenderSvc := services.NewEmailSender(messageSvc)
 	conversationSvc := services.NewConversationService(store)
 	tenantWebhookSvc := services.NewTenantWebhookService(store, nil, log)
-	webhookSvc := services.NewWebhookService(msgRepo, store, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, tenantWebhookSvc, log)
+	webhookSvc := services.NewWebhookService(msgRepo, store, contactSvc, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, tenantWebhookSvc, log)
 
 	// 7. Create handlers
 	m := &Module{

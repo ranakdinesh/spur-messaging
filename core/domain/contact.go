@@ -9,9 +9,10 @@ import (
 type OptInStatus string
 
 const (
-	OptInStatusPending  OptInStatus = "pending"
-	OptInStatusOptedIn  OptInStatus = "opted_in"
-	OptInStatusOptedOut OptInStatus = "opted_out"
+	OptInStatusPending            OptInStatus = "pending"
+	OptInStatusDoubleOptInPending OptInStatus = "double_opt_in_pending"
+	OptInStatusOptedIn            OptInStatus = "opted_in"
+	OptInStatusOptedOut           OptInStatus = "opted_out"
 )
 
 type Contact struct {
@@ -32,16 +33,28 @@ type Contact struct {
 }
 
 type ConsentRecord struct {
-	ID        uuid.UUID
-	TenantID  uuid.UUID
-	ContactID uuid.UUID
-	Channel   Channel
-	Status    OptInStatus
-	Source    string
-	Purpose   string
-	Proof     string
-	IPAddress string
-	UserAgent string
-	Brand     string
-	CreatedAt time.Time
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	ContactID   uuid.UUID
+	Channel     Channel
+	Status      OptInStatus
+	Source      string
+	Purpose     string
+	Proof       string
+	IPAddress   string
+	UserAgent   string
+	Brand       string
+	Keyword     string
+	Locale      string
+	ExpiresAt   *time.Time
+	ConfirmedAt *time.Time
+	CreatedAt   time.Time
 }
+
+type ConsentKeywordAction string
+
+const (
+	ConsentKeywordUnknown ConsentKeywordAction = ""
+	ConsentKeywordOptIn   ConsentKeywordAction = "opt_in"
+	ConsentKeywordOptOut  ConsentKeywordAction = "opt_out"
+)

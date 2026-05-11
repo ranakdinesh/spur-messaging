@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,17 +22,20 @@ func TestTenantWebhookTestEndpointSignsDelivery(t *testing.T) {
 	var receivedSignature string
 	var receivedTimestamp string
 	var receivedBody []byte
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		receivedSignature = r.Header.Get("X-Spur-Signature")
 		receivedTimestamp = r.Header.Get("X-Spur-Timestamp")
 		receivedBody, _ = io.ReadAll(r.Body)
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+		return &http.Response{
+			StatusCode: http.StatusNoContent,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
-	service := NewTenantWebhookService(repo, server.Client(), nil)
+	service := NewTenantWebhookService(repo, client, nil)
 	endpoint, err := service.CreateEndpoint(ctx, uuid.New(), ports.CreateWebhookEndpointRequest{
-		URL:    server.URL,
+		URL:    "https://hooks.example.test/messaging",
 		Secret: "12345678901234567890123456789012",
 		Events: []domain.WebhookEventType{
 			domain.WebhookEventTest,
@@ -64,19 +67,25 @@ func TestTenantWebhookReplayRetriesFailedDelivery(t *testing.T) {
 	ctx := context.Background()
 	repo := newTenantWebhookRepoStub()
 	attempts := 0
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		attempts++
 		if attempts == 1 {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(strings.NewReader("failed")),
+				Header:     make(http.Header),
+			}, nil
 		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
-	service := NewTenantWebhookService(repo, server.Client(), nil)
+	service := NewTenantWebhookService(repo, client, nil)
 	endpoint, err := service.CreateEndpoint(ctx, uuid.New(), ports.CreateWebhookEndpointRequest{
-		URL:    server.URL,
+		URL:    "https://hooks.example.test/messaging",
 		Secret: "12345678901234567890123456789012",
 		Events: []domain.WebhookEventType{domain.WebhookEventTest},
 	})
@@ -111,6 +120,12 @@ type tenantWebhookRepoStub struct {
 	mu         sync.Mutex
 	endpoints  map[uuid.UUID]domain.WebhookEndpoint
 	deliveries map[uuid.UUID]domain.WebhookDelivery
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func newTenantWebhookRepoStub() *tenantWebhookRepoStub {

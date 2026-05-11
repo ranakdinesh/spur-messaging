@@ -9,28 +9,34 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createConsentRecord = `-- name: CreateConsentRecord :one
 
 INSERT INTO messaging.consent_records (
-    tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand
+    tenant_id, contact_id, channel, status, source, purpose, proof, ip_address,
+    user_agent, brand, keyword, locale, expires_at, confirmed_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-) RETURNING id, tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) RETURNING id, tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand, keyword, locale, expires_at, confirmed_at, created_at
 `
 
 type CreateConsentRecordParams struct {
-	TenantID  uuid.UUID `json:"tenant_id"`
-	ContactID uuid.UUID `json:"contact_id"`
-	Channel   string    `json:"channel"`
-	Status    string    `json:"status"`
-	Source    string    `json:"source"`
-	Purpose   string    `json:"purpose"`
-	Proof     string    `json:"proof"`
-	IpAddress string    `json:"ip_address"`
-	UserAgent string    `json:"user_agent"`
-	Brand     string    `json:"brand"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
+	ContactID   uuid.UUID          `json:"contact_id"`
+	Channel     string             `json:"channel"`
+	Status      string             `json:"status"`
+	Source      string             `json:"source"`
+	Purpose     string             `json:"purpose"`
+	Proof       string             `json:"proof"`
+	IpAddress   string             `json:"ip_address"`
+	UserAgent   string             `json:"user_agent"`
+	Brand       string             `json:"brand"`
+	Keyword     string             `json:"keyword"`
+	Locale      string             `json:"locale"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
 }
 
 // sql/queries/consent_records.sql
@@ -46,6 +52,10 @@ func (q *Queries) CreateConsentRecord(ctx context.Context, arg CreateConsentReco
 		arg.IpAddress,
 		arg.UserAgent,
 		arg.Brand,
+		arg.Keyword,
+		arg.Locale,
+		arg.ExpiresAt,
+		arg.ConfirmedAt,
 	)
 	var i MessagingConsentRecord
 	err := row.Scan(
@@ -60,13 +70,17 @@ func (q *Queries) CreateConsentRecord(ctx context.Context, arg CreateConsentReco
 		&i.IpAddress,
 		&i.UserAgent,
 		&i.Brand,
+		&i.Keyword,
+		&i.Locale,
+		&i.ExpiresAt,
+		&i.ConfirmedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listConsentRecords = `-- name: ListConsentRecords :many
-SELECT id, tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand, created_at FROM messaging.consent_records
+SELECT id, tenant_id, contact_id, channel, status, source, purpose, proof, ip_address, user_agent, brand, keyword, locale, expires_at, confirmed_at, created_at FROM messaging.consent_records
 WHERE tenant_id = $1 AND contact_id = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -105,6 +119,10 @@ func (q *Queries) ListConsentRecords(ctx context.Context, arg ListConsentRecords
 			&i.IpAddress,
 			&i.UserAgent,
 			&i.Brand,
+			&i.Keyword,
+			&i.Locale,
+			&i.ExpiresAt,
+			&i.ConfirmedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
