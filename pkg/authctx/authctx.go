@@ -22,6 +22,53 @@ const (
 	keyAuthMethod  ctxKey = "auth_method" // "jwt" or "api_key"
 )
 
+// Identity describes an authenticated principal in the context shape expected
+// by messaging handlers.
+type Identity struct {
+	TenantID    uuid.UUID
+	UserID      uuid.UUID
+	Roles       []string
+	Permissions []string
+	AuthMethod  string
+	SuperAdmin  bool
+}
+
+// WithIdentity stores an authenticated principal in the request context.
+func WithIdentity(ctx context.Context, identity Identity) context.Context {
+	if identity.TenantID != uuid.Nil {
+		ctx = context.WithValue(ctx, keyTenantID, identity.TenantID)
+	}
+	if identity.UserID != uuid.Nil {
+		ctx = context.WithValue(ctx, keyUserID, identity.UserID)
+	}
+	ctx = context.WithValue(ctx, keyRoles, append([]string(nil), identity.Roles...))
+	permissions := append([]string(nil), identity.Permissions...)
+	if identity.SuperAdmin {
+		permissions = append(permissions, "*")
+	}
+	ctx = context.WithValue(ctx, keyPermissions, permissions)
+	if identity.AuthMethod != "" {
+		ctx = context.WithValue(ctx, keyAuthMethod, identity.AuthMethod)
+	}
+	return ctx
+}
+
+// WithAPIKey stores a tenant-scoped API key principal in the request context.
+func WithAPIKey(ctx context.Context, tenantID uuid.UUID, scopes []string) context.Context {
+	return WithIdentity(ctx, Identity{
+		TenantID:    tenantID,
+		Permissions: scopes,
+		AuthMethod:  "api_key",
+	})
+}
+
+// IsAuthenticated reports whether a previous middleware has already populated
+// messaging auth context.
+func IsAuthenticated(ctx context.Context) bool {
+	_, ok := ctx.Value(keyTenantID).(uuid.UUID)
+	return ok
+}
+
 // TenantID extracts the tenant UUID from context. Panics if missing.
 // This is safe because the identity middleware guarantees it is set
 // for all authenticated routes. If it panics, it means auth middleware
@@ -84,6 +131,10 @@ func IdentityJWTBridge(cookieName string) func(http.Handler) http.Handler {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if IsAuthenticated(r.Context()) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			token := extractBearerToken(r)
 			if token == "" {
 				if cookie, err := r.Cookie(cookieName); err == nil {
@@ -155,9 +206,13 @@ func contextFromClaims(ctx context.Context, claims map[string]any) (context.Cont
 	if isSuperAdmin(claims) {
 		permissions = append(permissions, "*")
 	}
-	ctx = context.WithValue(ctx, keyPermissions, permissions)
-	ctx = context.WithValue(ctx, keyAuthMethod, "jwt")
-	return ctx, nil
+	return WithIdentity(ctx, Identity{
+		TenantID:    tenantID,
+		UserID:      UserID(ctx),
+		Roles:       roles,
+		Permissions: permissions,
+		AuthMethod:  "jwt",
+	}), nil
 }
 
 func claimStrings(raw any) []string {

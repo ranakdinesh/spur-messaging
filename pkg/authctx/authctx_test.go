@@ -1,11 +1,14 @@
 package authctx
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestIdentityJWTBridgeCopiesIdentityClaims(t *testing.T) {
@@ -63,6 +66,49 @@ func TestIdentityJWTBridgeAllowsSuperAdminWildcard(t *testing.T) {
 	})).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestWithAPIKeySetsMessagingContext(t *testing.T) {
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	ctx := WithAPIKey(context.Background(), tenantID, []string{"messaging:messages:send"})
+
+	if !IsAuthenticated(ctx) {
+		t.Fatal("expected context to be authenticated")
+	}
+	if got := TenantID(ctx); got != tenantID {
+		t.Fatalf("TenantID() = %s", got)
+	}
+	if got := UserID(ctx); got != uuid.Nil {
+		t.Fatalf("UserID() = %s", got)
+	}
+	if !HasPermission(ctx, "messaging:messages:send") {
+		t.Fatal("expected API key scope to be accepted as permission")
+	}
+	if got := AuthMethod(ctx); got != "api_key" {
+		t.Fatalf("AuthMethod() = %s", got)
+	}
+}
+
+func TestIdentityJWTBridgeSkipsAlreadyAuthenticatedContext(t *testing.T) {
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	handler := IdentityJWTBridge("spur_sso")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := TenantID(r.Context()); got != tenantID {
+			t.Fatalf("TenantID() = %s", got)
+		}
+		if got := AuthMethod(r.Context()); got != "api_key" {
+			t.Fatalf("AuthMethod() = %s", got)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(WithAPIKey(req.Context(), tenantID, []string{"messaging:messages:send"}))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }
