@@ -15,6 +15,7 @@ import (
 	"github.com/ranakdinesh/spur-messaging/adapters/queue"
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/core/services"
+	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
 	"github.com/ranakdinesh/spur-messaging/worker"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -232,6 +233,10 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 
 // RegisterRoutes mounts AUTHENTICATED messaging routes on the chi router.
 func (m *Module) RegisterRoutes(r chi.Router) {
+	// Identity middleware authenticates the token before this bridge copies
+	// tenant/user/permission claims into messaging's auth context.
+	r.Use(authctx.IdentityJWTBridge("spur_sso"))
+
 	// Apply rate limiting middleware
 	r.Use(m.rateLimiter.Middleware)
 

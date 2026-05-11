@@ -21,7 +21,7 @@ func NewUnsubscribeHandler(service ports.UnsubscribeService) *UnsubscribeHandler
 
 func (h *UnsubscribeHandler) ListUnsubscribes(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -64,7 +64,7 @@ func (h *UnsubscribeHandler) ListUnsubscribes(w http.ResponseWriter, r *http.Req
 
 func (h *UnsubscribeHandler) Resubscribe(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:manage_consent") {
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -85,7 +85,7 @@ func (h *UnsubscribeHandler) Resubscribe(w http.ResponseWriter, r *http.Request)
 
 func (h *UnsubscribeHandler) CheckUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

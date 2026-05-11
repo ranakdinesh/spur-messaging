@@ -30,6 +30,84 @@
     "TWILIO_AUTH_TOKEN",
     "TWILIO_FROM_NUMBER"
   ],
+  "permissions": [
+    {
+      "key": "messaging:analytics:read",
+      "description": "Read messaging dashboards, campaign reports, and delivery analytics."
+    },
+    {
+      "key": "messaging:providers:read",
+      "description": "Read messaging provider configuration."
+    },
+    {
+      "key": "messaging:providers:write",
+      "description": "Create and update messaging provider credentials."
+    },
+    {
+      "key": "messaging:providers:test",
+      "description": "Send provider test messages."
+    },
+    {
+      "key": "messaging:templates:read",
+      "description": "Read WhatsApp and email templates."
+    },
+    {
+      "key": "messaging:templates:write",
+      "description": "Create and update WhatsApp and email templates."
+    },
+    {
+      "key": "messaging:templates:submit",
+      "description": "Submit WhatsApp templates for provider approval and sync review state."
+    },
+    {
+      "key": "messaging:contacts:read",
+      "description": "Read contacts, segments, consent, unsubscribe, and suppression data."
+    },
+    {
+      "key": "messaging:contacts:write",
+      "description": "Create, update, and delete contacts."
+    },
+    {
+      "key": "messaging:contacts:import",
+      "description": "Import contacts in bulk."
+    },
+    {
+      "key": "messaging:contacts:manage_consent",
+      "description": "Manage opt-in, opt-out, unsubscribe, and suppression state."
+    },
+    {
+      "key": "messaging:segments:read",
+      "description": "Read audience segments and resolved segment contacts."
+    },
+    {
+      "key": "messaging:segments:write",
+      "description": "Create, update, and delete audience segments."
+    },
+    {
+      "key": "messaging:campaigns:read",
+      "description": "Read campaign lists, status, and reporting."
+    },
+    {
+      "key": "messaging:campaigns:write",
+      "description": "Create and update campaigns."
+    },
+    {
+      "key": "messaging:campaigns:execute",
+      "description": "Execute, pause, resume, and manage campaign runs."
+    },
+    {
+      "key": "messaging:messages:read",
+      "description": "Read message delivery logs."
+    },
+    {
+      "key": "messaging:messages:send",
+      "description": "Send individual messages and test sends."
+    },
+    {
+      "key": "messaging:messages:send_bulk",
+      "description": "Send bulk messages."
+    }
+  ],
   "has_sqlc": true,
   "config_struct": "MessagingConfig",
   "config_env_prefix": "MESSAGING_",

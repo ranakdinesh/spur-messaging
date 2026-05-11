@@ -22,7 +22,7 @@ func NewEmailTemplateHandler(service ports.EmailTemplateService) *EmailTemplateH
 
 func (h *EmailTemplateHandler) CreateEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -49,7 +49,7 @@ func (h *EmailTemplateHandler) CreateEmailTemplate(w http.ResponseWriter, r *htt
 
 func (h *EmailTemplateHandler) ListEmailTemplates(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -92,7 +92,7 @@ func (h *EmailTemplateHandler) ListEmailTemplates(w http.ResponseWriter, r *http
 
 func (h *EmailTemplateHandler) GetEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -114,7 +114,7 @@ func (h *EmailTemplateHandler) GetEmailTemplate(w http.ResponseWriter, r *http.R
 
 func (h *EmailTemplateHandler) UpdateEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -142,7 +142,7 @@ func (h *EmailTemplateHandler) UpdateEmailTemplate(w http.ResponseWriter, r *htt
 
 func (h *EmailTemplateHandler) DeleteEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -163,7 +163,7 @@ func (h *EmailTemplateHandler) DeleteEmailTemplate(w http.ResponseWriter, r *htt
 
 func (h *EmailTemplateHandler) PreviewEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -193,7 +193,7 @@ func (h *EmailTemplateHandler) PreviewEmailTemplate(w http.ResponseWriter, r *ht
 
 func (h *EmailTemplateHandler) DuplicateTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -223,7 +223,7 @@ func (h *EmailTemplateHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 
 func (h *EmailTemplateHandler) SendTestEmail(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:messages:send") {
+	if !authctx.HasPermission(r.Context(), permMessagesSend) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

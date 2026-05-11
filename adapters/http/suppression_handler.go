@@ -22,7 +22,7 @@ func NewSuppressionHandler(service ports.SuppressionService) *SuppressionHandler
 
 func (h *SuppressionHandler) ListSuppressions(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -65,7 +65,7 @@ func (h *SuppressionHandler) ListSuppressions(w http.ResponseWriter, r *http.Req
 
 func (h *SuppressionHandler) AddToSuppression(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:manage_consent") {
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -89,7 +89,7 @@ func (h *SuppressionHandler) AddToSuppression(w http.ResponseWriter, r *http.Req
 
 func (h *SuppressionHandler) RemoveFromSuppression(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:manage_consent") {
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -110,7 +110,7 @@ func (h *SuppressionHandler) RemoveFromSuppression(w http.ResponseWriter, r *htt
 
 func (h *SuppressionHandler) BulkCheckSuppression(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

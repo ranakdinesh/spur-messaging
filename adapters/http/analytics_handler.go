@@ -28,7 +28,7 @@ func NewAnalyticsHandler(msgSvc ports.MessageService, emailAn ports.EmailAnalyti
 
 func (h *AnalyticsHandler) MessageAnalytics(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -39,7 +39,7 @@ func (h *AnalyticsHandler) MessageAnalytics(w http.ResponseWriter, r *http.Reque
 
 func (h *AnalyticsHandler) DashboardOverview(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -50,7 +50,7 @@ func (h *AnalyticsHandler) DashboardOverview(w http.ResponseWriter, r *http.Requ
 
 func (h *AnalyticsHandler) EmailOverviewStats(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *AnalyticsHandler) EmailOverviewStats(w http.ResponseWriter, r *http.Req
 
 func (h *AnalyticsHandler) EmailCampaignReport(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -94,7 +94,7 @@ func (h *AnalyticsHandler) EmailCampaignReport(w http.ResponseWriter, r *http.Re
 
 func (h *AnalyticsHandler) BounceReport(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -116,7 +116,7 @@ func (h *AnalyticsHandler) BounceReport(w http.ResponseWriter, r *http.Request) 
 
 func (h *AnalyticsHandler) DomainReputation(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -132,7 +132,7 @@ func (h *AnalyticsHandler) DomainReputation(w http.ResponseWriter, r *http.Reque
 
 func (h *AnalyticsHandler) TopLinksReport(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -159,7 +159,7 @@ func (h *AnalyticsHandler) TopLinksReport(w http.ResponseWriter, r *http.Request
 
 func (h *AnalyticsHandler) EngagementByHour(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:analytics:read") {
+	if !authctx.HasPermission(r.Context(), permAnalyticsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

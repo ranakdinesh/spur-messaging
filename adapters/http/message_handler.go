@@ -22,7 +22,7 @@ func NewMessageHandler(service ports.MessageService) *MessageHandler {
 
 func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:messages:send") {
+	if !authctx.HasPermission(r.Context(), permMessagesSend) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -95,7 +95,7 @@ func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *MessageHandler) SendBulkMessages(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:messages:send_bulk") {
+	if !authctx.HasPermission(r.Context(), permMessagesSendBulk) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -139,7 +139,7 @@ func (h *MessageHandler) SendBulkMessages(w http.ResponseWriter, r *http.Request
 
 func (h *MessageHandler) GetMessage(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:messages:read") {
+	if !authctx.HasPermission(r.Context(), permMessagesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -161,7 +161,7 @@ func (h *MessageHandler) GetMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:messages:read") {
+	if !authctx.HasPermission(r.Context(), permMessagesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

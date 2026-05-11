@@ -22,7 +22,7 @@ func NewTemplateHandler(service ports.TemplateService) *TemplateHandler {
 
 func (h *TemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -59,7 +59,7 @@ func (h *TemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Request)
 
 func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -108,7 +108,7 @@ func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) 
 
 func (h *TemplateHandler) GetTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -130,7 +130,7 @@ func (h *TemplateHandler) GetTemplate(w http.ResponseWriter, r *http.Request) {
 
 func (h *TemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -158,7 +158,7 @@ func (h *TemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request)
 
 func (h *TemplateHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:write") {
+	if !authctx.HasPermission(r.Context(), permTemplatesWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -179,7 +179,7 @@ func (h *TemplateHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request)
 
 func (h *TemplateHandler) SubmitForApproval(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:submit") {
+	if !authctx.HasPermission(r.Context(), permTemplatesSubmit) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -201,7 +201,7 @@ func (h *TemplateHandler) SubmitForApproval(w http.ResponseWriter, r *http.Reque
 
 func (h *TemplateHandler) SyncStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:templates:read") {
+	if !authctx.HasPermission(r.Context(), permTemplatesRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

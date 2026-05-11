@@ -22,7 +22,7 @@ func NewContactHandler(service ports.ContactService) *ContactHandler {
 
 func (h *ContactHandler) CreateContact(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:write") {
+	if !authctx.HasPermission(r.Context(), permContactsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *ContactHandler) CreateContact(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) ListContacts(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -124,7 +124,7 @@ func (h *ContactHandler) ListContacts(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) GetContact(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:read") {
+	if !authctx.HasPermission(r.Context(), permContactsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -146,7 +146,7 @@ func (h *ContactHandler) GetContact(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) UpdateContact(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:write") {
+	if !authctx.HasPermission(r.Context(), permContactsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -206,7 +206,7 @@ func (h *ContactHandler) UpdateContact(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) DeleteContact(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:write") {
+	if !authctx.HasPermission(r.Context(), permContactsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -227,7 +227,7 @@ func (h *ContactHandler) DeleteContact(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) BulkImport(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:import") {
+	if !authctx.HasPermission(r.Context(), permContactsImport) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -254,7 +254,7 @@ func (h *ContactHandler) BulkImport(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) OptIn(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:manage_consent") {
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -283,7 +283,7 @@ func (h *ContactHandler) OptIn(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContactHandler) OptOut(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:contacts:manage_consent") {
+	if !authctx.HasPermission(r.Context(), permContactsManageConsent) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

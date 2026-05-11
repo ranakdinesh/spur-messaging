@@ -22,7 +22,7 @@ func NewCampaignHandler(service ports.CampaignService) *CampaignHandler {
 
 func (h *CampaignHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:write") {
+	if !authctx.HasPermission(r.Context(), permCampaignsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -59,7 +59,7 @@ func (h *CampaignHandler) CreateCampaign(w http.ResponseWriter, r *http.Request)
 
 func (h *CampaignHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:read") {
+	if !authctx.HasPermission(r.Context(), permCampaignsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -102,7 +102,7 @@ func (h *CampaignHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) 
 
 func (h *CampaignHandler) GetCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:read") {
+	if !authctx.HasPermission(r.Context(), permCampaignsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -124,7 +124,7 @@ func (h *CampaignHandler) GetCampaign(w http.ResponseWriter, r *http.Request) {
 
 func (h *CampaignHandler) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:write") {
+	if !authctx.HasPermission(r.Context(), permCampaignsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -152,7 +152,7 @@ func (h *CampaignHandler) UpdateCampaign(w http.ResponseWriter, r *http.Request)
 
 func (h *CampaignHandler) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:write") {
+	if !authctx.HasPermission(r.Context(), permCampaignsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -173,7 +173,7 @@ func (h *CampaignHandler) DeleteCampaign(w http.ResponseWriter, r *http.Request)
 
 func (h *CampaignHandler) ExecuteCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:execute") {
+	if !authctx.HasPermission(r.Context(), permCampaignsExecute) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -194,7 +194,7 @@ func (h *CampaignHandler) ExecuteCampaign(w http.ResponseWriter, r *http.Request
 
 func (h *CampaignHandler) PauseCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:execute") {
+	if !authctx.HasPermission(r.Context(), permCampaignsExecute) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -215,7 +215,7 @@ func (h *CampaignHandler) PauseCampaign(w http.ResponseWriter, r *http.Request) 
 
 func (h *CampaignHandler) ResumeCampaign(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:execute") {
+	if !authctx.HasPermission(r.Context(), permCampaignsExecute) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -236,7 +236,7 @@ func (h *CampaignHandler) ResumeCampaign(w http.ResponseWriter, r *http.Request)
 
 func (h *CampaignHandler) GetCampaignStats(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:campaigns:read") {
+	if !authctx.HasPermission(r.Context(), permCampaignsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

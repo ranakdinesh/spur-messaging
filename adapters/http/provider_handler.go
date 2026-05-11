@@ -25,7 +25,7 @@ func NewProviderHandler(service ports.ProviderConfigRepository, messageService p
 
 func (h *ProviderHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:write") {
+	if !authctx.HasPermission(r.Context(), permProvidersWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *ProviderHandler) CreateProvider(w http.ResponseWriter, r *http.Request)
 
 func (h *ProviderHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:read") {
+	if !authctx.HasPermission(r.Context(), permProvidersRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -88,7 +88,7 @@ func (h *ProviderHandler) ListProviders(w http.ResponseWriter, r *http.Request) 
 
 func (h *ProviderHandler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:read") {
+	if !authctx.HasPermission(r.Context(), permProvidersRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -110,7 +110,7 @@ func (h *ProviderHandler) GetProvider(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProviderHandler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:write") {
+	if !authctx.HasPermission(r.Context(), permProvidersWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -144,7 +144,7 @@ func (h *ProviderHandler) UpdateProvider(w http.ResponseWriter, r *http.Request)
 
 func (h *ProviderHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:write") {
+	if !authctx.HasPermission(r.Context(), permProvidersWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -165,7 +165,7 @@ func (h *ProviderHandler) DeleteProvider(w http.ResponseWriter, r *http.Request)
 
 func (h *ProviderHandler) TestProvider(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:providers:test") {
+	if !authctx.HasPermission(r.Context(), permProvidersTest) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}

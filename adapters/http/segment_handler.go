@@ -22,7 +22,7 @@ func NewSegmentHandler(service ports.SegmentService) *SegmentHandler {
 
 func (h *SegmentHandler) CreateSegment(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:write") {
+	if !authctx.HasPermission(r.Context(), permSegmentsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -48,7 +48,7 @@ func (h *SegmentHandler) CreateSegment(w http.ResponseWriter, r *http.Request) {
 
 func (h *SegmentHandler) ListSegments(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:read") {
+	if !authctx.HasPermission(r.Context(), permSegmentsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -64,7 +64,7 @@ func (h *SegmentHandler) ListSegments(w http.ResponseWriter, r *http.Request) {
 
 func (h *SegmentHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:read") {
+	if !authctx.HasPermission(r.Context(), permSegmentsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -86,7 +86,7 @@ func (h *SegmentHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
 
 func (h *SegmentHandler) UpdateSegment(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:write") {
+	if !authctx.HasPermission(r.Context(), permSegmentsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -119,7 +119,7 @@ func (h *SegmentHandler) UpdateSegment(w http.ResponseWriter, r *http.Request) {
 
 func (h *SegmentHandler) DeleteSegment(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:write") {
+	if !authctx.HasPermission(r.Context(), permSegmentsWrite) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
@@ -140,7 +140,7 @@ func (h *SegmentHandler) DeleteSegment(w http.ResponseWriter, r *http.Request) {
 
 func (h *SegmentHandler) ResolveContacts(w http.ResponseWriter, r *http.Request) {
 	tenantID := authctx.TenantID(r.Context())
-	if !authctx.HasPermission(r.Context(), "messaging:segments:read") {
+	if !authctx.HasPermission(r.Context(), permSegmentsRead) {
 		RespondError(w, domain.ErrForbidden)
 		return
 	}
