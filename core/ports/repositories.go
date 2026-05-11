@@ -21,6 +21,12 @@ type MessageRepository interface {
 	CountByCampaign(ctx context.Context, campaignID uuid.UUID) (int, error)
 }
 
+type ConversationRepository interface {
+	GetActiveByRecipient(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, at time.Time) (*domain.Conversation, error)
+	UpsertInbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, inboundAt time.Time) (*domain.Conversation, error)
+	UpsertOutbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, outboundAt time.Time) (*domain.Conversation, error)
+}
+
 type MessageFilter struct {
 	Channel    *domain.Channel
 	Status     *domain.MessageStatus

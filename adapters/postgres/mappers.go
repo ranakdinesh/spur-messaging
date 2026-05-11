@@ -125,6 +125,22 @@ func toConsentRecordDomain(r gen.MessagingConsentRecord) domain.ConsentRecord {
 	}
 }
 
+func toConversationDomain(c gen.MessagingConversation) domain.Conversation {
+	return domain.Conversation{
+		ID:                 c.ID,
+		TenantID:           c.TenantID,
+		Channel:            domain.Channel(c.Channel),
+		Recipient:          c.Recipient,
+		Status:             domain.ConversationStatus(c.Status),
+		HandoffStatus:      domain.ConversationHandoffStatus(c.HandoffStatus),
+		LastInboundAt:      pgTimestamptzToPtr(c.LastInboundAt),
+		LastOutboundAt:     pgTimestamptzToPtr(c.LastOutboundAt),
+		ServiceWindowUntil: pgTimestamptzToPtr(c.ServiceWindowUntil),
+		CreatedAt:          c.CreatedAt,
+		UpdatedAt:          c.UpdatedAt,
+	}
+}
+
 // Campaign mappers
 func toCampaignDomain(c gen.MessagingCampaign) domain.Campaign {
 	var templateParams map[string]string

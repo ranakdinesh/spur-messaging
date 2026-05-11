@@ -51,6 +51,8 @@ type Querier interface {
 	DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) error
 	DeleteUnsubscribe(ctx context.Context, arg DeleteUnsubscribeParams) error
 	ExistsByProviderEventID(ctx context.Context, providerEventID pgtype.Text) (bool, error)
+	// sql/queries/conversations.sql
+	GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error)
 	GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams) (MessagingCampaign, error)
 	GetCampaignStats(ctx context.Context, arg GetCampaignStatsParams) (json.RawMessage, error)
 	GetContactByEmail(ctx context.Context, arg GetContactByEmailParams) (MessagingContact, error)
@@ -105,6 +107,8 @@ type Querier interface {
 	UpdateSegment(ctx context.Context, arg UpdateSegmentParams) (MessagingSegment, error)
 	UpdateTemplate(ctx context.Context, arg UpdateTemplateParams) (MessagingTemplate, error)
 	UpdateTemplateStatus(ctx context.Context, arg UpdateTemplateStatusParams) error
+	UpsertConversationInbound(ctx context.Context, arg UpsertConversationInboundParams) (MessagingConversation, error)
+	UpsertConversationOutbound(ctx context.Context, arg UpsertConversationOutboundParams) (MessagingConversation, error)
 }
 
 var _ Querier = (*Queries)(nil)

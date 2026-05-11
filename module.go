@@ -155,7 +155,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	suppressionSvc := services.NewSuppressionService(suppressionRepo)
 	unsubscribeSvc := services.NewUnsubscribeService(unsubscribeRepo)
 	contactSvc := services.NewContactService(contactRepo)
-	messageSvc := services.NewMessageService(msgRepo, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, emailTemplateRepo, providerRegistry, services.Config{
+	messageSvc := services.NewMessageService(msgRepo, store, contactRepo, tmplRepo, msgQueue, suppressionSvc, unsubscribeSvc, emailTemplateRepo, providerRegistry, services.Config{
 		EncryptionKey:              opt.Cfg.EncryptionKey,
 		WebhookBaseURL:             opt.Cfg.WebhookBaseURL,
 		DefaultRateLimit:           opt.Cfg.DefaultRateLimit,
@@ -177,7 +177,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
 	emailAnalyticsSvc := services.NewEmailAnalyticsService(emailEventRepo)
 	emailSenderSvc := services.NewEmailSender(messageSvc)
-	webhookSvc := services.NewWebhookService(msgRepo, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, log)
+	webhookSvc := services.NewWebhookService(msgRepo, store, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, log)
 
 	// 7. Create handlers
 	m := &Module{

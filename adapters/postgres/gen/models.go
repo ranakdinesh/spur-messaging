@@ -62,6 +62,20 @@ type MessagingContact struct {
 	UpdatedAt     time.Time          `json:"updated_at"`
 }
 
+type MessagingConversation struct {
+	ID                 uuid.UUID          `json:"id"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
+	Channel            string             `json:"channel"`
+	Recipient          string             `json:"recipient"`
+	Status             string             `json:"status"`
+	HandoffStatus      string             `json:"handoff_status"`
+	LastInboundAt      pgtype.Timestamptz `json:"last_inbound_at"`
+	LastOutboundAt     pgtype.Timestamptz `json:"last_outbound_at"`
+	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
+}
+
 type MessagingEmailEvent struct {
 	ID                uuid.UUID       `json:"id"`
 	TenantID          uuid.UUID       `json:"tenant_id"`

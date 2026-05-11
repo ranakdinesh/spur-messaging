@@ -40,6 +40,7 @@ type Config struct {
 
 type MessageService struct {
 	repo              ports.MessageRepository
+	conversationRepo  ports.ConversationRepository
 	contactRepo       ports.ContactRepository
 	templateRepo      ports.TemplateRepository
 	queue             ports.MessageQueue
@@ -52,6 +53,7 @@ type MessageService struct {
 
 func NewMessageService(
 	repo ports.MessageRepository,
+	conversationRepo ports.ConversationRepository,
 	contactRepo ports.ContactRepository,
 	templateRepo ports.TemplateRepository,
 	queue ports.MessageQueue,
@@ -63,6 +65,7 @@ func NewMessageService(
 ) *MessageService {
 	return &MessageService{
 		repo:              repo,
+		conversationRepo:  conversationRepo,
 		contactRepo:       contactRepo,
 		templateRepo:      templateRepo,
 		queue:             queue,
@@ -170,6 +173,7 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 	// 4. Rate limit check (Section 10A.2 - placeholder)
 
 	// 5. Channel-specific checks & RENDERING
+	var conversationID *uuid.UUID
 	if req.Channel == domain.ChannelWhatsApp {
 		if req.MessageType == domain.MessageTypeTemplate {
 			if req.TemplateName == nil {
@@ -187,8 +191,24 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 				return nil, domain.ErrTemplateNotApproved
 			}
 		} else {
-			// Section 10A.2: Within 24hr session window?
-			// Placeholder: check conversation history
+			if s.conversationRepo == nil {
+				return nil, domain.ErrSessionWindowClosed
+			}
+			conversation, err := s.conversationRepo.GetActiveByRecipient(ctx, tenantID, domain.ChannelWhatsApp, req.Recipient, time.Now())
+			if err != nil {
+				if errors.Is(err, domain.ErrNotFound) {
+					return nil, domain.ErrSessionWindowClosed
+				}
+				return nil, err
+			}
+			conversationID = &conversation.ID
+		}
+		if s.conversationRepo != nil {
+			conversation, err := s.conversationRepo.UpsertOutbound(ctx, tenantID, domain.ChannelWhatsApp, req.Recipient, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			conversationID = &conversation.ID
 		}
 	}
 
@@ -277,6 +297,7 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 	msg := &domain.Message{
 		ID:             uuid.New(),
 		TenantID:       tenantID,
+		ConversationID: conversationID,
 		Channel:        req.Channel,
 		Direction:      "outbound",
 		Recipient:      req.Recipient,

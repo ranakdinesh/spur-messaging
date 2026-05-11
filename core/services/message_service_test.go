@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -156,6 +157,7 @@ func newSMSMessageServiceWithSuppression(repo *messageRepoStub, queue *messageQu
 
 	return NewMessageService(
 		repo,
+		nil,
 		&contactRepoStub{phone: phone},
 		nil,
 		queue,
@@ -164,6 +166,98 @@ func newSMSMessageServiceWithSuppression(repo *messageRepoStub, queue *messageQu
 		nil,
 		registry,
 		Config{SMSSenderID: "SPUR"},
+	)
+}
+
+func TestMessageServiceBlocksFreeformWhatsAppOutsideSessionWindow(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	phone := "+919810914244"
+	repo := newMessageRepoStub()
+	queue := &messageQueueStub{}
+	svc := newWhatsAppMessageService(repo, queue, tenantID, phone, &conversationRepoStub{})
+
+	text := "hello"
+	_, err := svc.Send(ctx, tenantID, ports.SendMessageRequest{
+		Channel:     domain.ChannelWhatsApp,
+		Recipient:   phone,
+		MessageType: domain.MessageTypeText,
+		Text:        &text,
+	})
+	if !errors.Is(err, domain.ErrSessionWindowClosed) {
+		t.Fatalf("expected ErrSessionWindowClosed, got %v", err)
+	}
+	if repo.createCalls != 0 {
+		t.Fatalf("expected no message create outside session window, got %d", repo.createCalls)
+	}
+	if len(queue.enqueued) != 0 {
+		t.Fatalf("expected no enqueue outside session window, got %d", len(queue.enqueued))
+	}
+}
+
+func TestMessageServiceAllowsFreeformWhatsAppInsideSessionWindow(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	phone := "+919810914244"
+	repo := newMessageRepoStub()
+	queue := &messageQueueStub{}
+	conversationID := uuid.New()
+	svc := newWhatsAppMessageService(repo, queue, tenantID, phone, &conversationRepoStub{
+		active: &domain.Conversation{
+			ID:                 conversationID,
+			TenantID:           tenantID,
+			Channel:            domain.ChannelWhatsApp,
+			Recipient:          phone,
+			Status:             domain.ConversationStatusOpen,
+			ServiceWindowUntil: ptrTime(time.Now().Add(time.Hour)),
+		},
+	})
+
+	text := "hello"
+	msg, err := svc.Send(ctx, tenantID, ports.SendMessageRequest{
+		Channel:     domain.ChannelWhatsApp,
+		Recipient:   phone,
+		MessageType: domain.MessageTypeText,
+		Text:        &text,
+	})
+	if err != nil {
+		t.Fatalf("Send returned error: %v", err)
+	}
+	if msg.ConversationID == nil || *msg.ConversationID != conversationID {
+		t.Fatalf("expected conversation %s, got %#v", conversationID, msg.ConversationID)
+	}
+	if repo.createCalls != 1 {
+		t.Fatalf("expected one message create, got %d", repo.createCalls)
+	}
+	if len(queue.enqueued) != 1 {
+		t.Fatalf("expected one enqueue, got %d", len(queue.enqueued))
+	}
+}
+
+func newWhatsAppMessageService(repo *messageRepoStub, queue *messageQueueStub, tenantID uuid.UUID, phone string, conversationRepo ports.ConversationRepository) *MessageService {
+	configRepo := &providerConfigRepoStub{
+		cfg: &domain.ProviderConfig{
+			ID:       uuid.New(),
+			TenantID: tenantID,
+			Channel:  domain.ChannelWhatsApp,
+			Provider: "fake_whatsapp",
+			IsActive: true,
+		},
+	}
+	registry := NewProviderRegistry(configRepo)
+	registry.RegisterWithName("fake_whatsapp", fakeProvider{channel: domain.ChannelWhatsApp})
+
+	return NewMessageService(
+		repo,
+		conversationRepo,
+		&contactRepoStub{phone: phone},
+		nil,
+		queue,
+		nil,
+		nil,
+		nil,
+		registry,
+		Config{},
 	)
 }
 
@@ -360,6 +454,54 @@ func (p fakeProvider) ParseWebhook(context.Context, *domain.ProviderConfig, http
 }
 func (p fakeProvider) ValidateWebhookSignature(*domain.ProviderConfig, http.Header, []byte) bool {
 	return true
+}
+
+type conversationRepoStub struct {
+	active *domain.Conversation
+}
+
+func (r *conversationRepoStub) GetActiveByRecipient(_ context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, at time.Time) (*domain.Conversation, error) {
+	if r.active == nil || r.active.TenantID != tenantID || r.active.Channel != channel || r.active.Recipient != recipient {
+		return nil, domain.ErrNotFound
+	}
+	if r.active.ServiceWindowUntil == nil || !r.active.ServiceWindowUntil.After(at) {
+		return nil, domain.ErrNotFound
+	}
+	active := *r.active
+	return &active, nil
+}
+
+func (r *conversationRepoStub) UpsertInbound(_ context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, inboundAt time.Time) (*domain.Conversation, error) {
+	windowUntil := inboundAt.Add(24 * time.Hour)
+	r.active = &domain.Conversation{
+		ID:                 uuid.New(),
+		TenantID:           tenantID,
+		Channel:            channel,
+		Recipient:          recipient,
+		Status:             domain.ConversationStatusOpen,
+		LastInboundAt:      &inboundAt,
+		ServiceWindowUntil: &windowUntil,
+	}
+	return r.active, nil
+}
+
+func (r *conversationRepoStub) UpsertOutbound(_ context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, outboundAt time.Time) (*domain.Conversation, error) {
+	if r.active == nil {
+		r.active = &domain.Conversation{
+			ID:        uuid.New(),
+			TenantID:  tenantID,
+			Channel:   channel,
+			Recipient: recipient,
+			Status:    domain.ConversationStatusOpen,
+		}
+	}
+	r.active.LastOutboundAt = &outboundAt
+	active := *r.active
+	return &active, nil
+}
+
+func ptrTime(t time.Time) *time.Time {
+	return &t
 }
 
 type suppressionServiceStub struct {

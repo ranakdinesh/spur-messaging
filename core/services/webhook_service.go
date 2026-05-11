@@ -23,6 +23,7 @@ type Logger interface {
 
 type WebhookService struct {
 	messageRepo      ports.MessageRepository
+	conversationRepo ports.ConversationRepository
 	emailEventRepo   ports.EmailEventRepository
 	suppressionSvc   ports.SuppressionService
 	unsubscribeSvc   ports.UnsubscribeService
@@ -33,6 +34,7 @@ type WebhookService struct {
 
 func NewWebhookService(
 	messageRepo ports.MessageRepository,
+	conversationRepo ports.ConversationRepository,
 	emailEventRepo ports.EmailEventRepository,
 	suppressionSvc ports.SuppressionService,
 	unsubscribeSvc ports.UnsubscribeService,
@@ -42,6 +44,7 @@ func NewWebhookService(
 ) *WebhookService {
 	return &WebhookService{
 		messageRepo:      messageRepo,
+		conversationRepo: conversationRepo,
 		emailEventRepo:   emailEventRepo,
 		suppressionSvc:   suppressionSvc,
 		unsubscribeSvc:   unsubscribeSvc,
@@ -116,9 +119,20 @@ func (s *WebhookService) processWhatsAppIncoming(ctx context.Context, tenantID u
 		timestamp = time.Unix(t, 0)
 	}
 
+	var conversationID *uuid.UUID
+	if s.conversationRepo != nil {
+		conversation, err := s.conversationRepo.UpsertInbound(ctx, tenantID, domain.ChannelWhatsApp, msg.From, timestamp)
+		if err != nil {
+			s.log.Error("failed to upsert whatsapp conversation", "error", err, "from", msg.From)
+		} else {
+			conversationID = &conversation.ID
+		}
+	}
+
 	inbound := &domain.Message{
 		ID:                uuid.New(),
 		TenantID:          tenantID,
+		ConversationID:    conversationID,
 		Channel:           domain.ChannelWhatsApp,
 		Direction:         "inbound",
 		Recipient:         "platform", // Or our WhatsApp number

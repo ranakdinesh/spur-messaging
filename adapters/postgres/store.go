@@ -216,6 +216,52 @@ func isIdempotencyConflict(err error) bool {
 	return ok && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_messages_tenant_idempotency"
 }
 
+// ConversationRepository
+func (s *Store) GetActiveByRecipient(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, at time.Time) (*domain.Conversation, error) {
+	row, err := s.q.GetActiveConversationByRecipient(ctx, gen.GetActiveConversationByRecipientParams{
+		TenantID:           tenantID,
+		Channel:            string(channel),
+		Recipient:          recipient,
+		ServiceWindowUntil: fromTimePtr(&at),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
+func (s *Store) UpsertInbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, inboundAt time.Time) (*domain.Conversation, error) {
+	row, err := s.q.UpsertConversationInbound(ctx, gen.UpsertConversationInboundParams{
+		TenantID:      tenantID,
+		Channel:       string(channel),
+		Recipient:     recipient,
+		LastInboundAt: fromTimePtr(&inboundAt),
+	})
+	if err != nil {
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
+func (s *Store) UpsertOutbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, outboundAt time.Time) (*domain.Conversation, error) {
+	row, err := s.q.UpsertConversationOutbound(ctx, gen.UpsertConversationOutboundParams{
+		TenantID:       tenantID,
+		Channel:        string(channel),
+		Recipient:      recipient,
+		LastOutboundAt: fromTimePtr(&outboundAt),
+	})
+	if err != nil {
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
 // TemplateRepository
 func (s *Store) CreateTemplate(ctx context.Context, tmpl *domain.Template) error {
 	comp, _ := json.Marshal(tmpl.Components)

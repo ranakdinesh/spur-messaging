@@ -81,6 +81,24 @@ CREATE INDEX idx_consent_records_contact ON messaging.consent_records (tenant_id
 CREATE INDEX idx_consent_records_channel ON messaging.consent_records (tenant_id, channel, status, created_at DESC);
 
 -- Messages (outbound and inbound)
+CREATE TABLE messaging.conversations (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL,
+    channel              TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'email')),
+    recipient            TEXT NOT NULL,
+    status               TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+    handoff_status       TEXT NOT NULL DEFAULT 'bot' CHECK (handoff_status IN ('bot', 'agent', 'closed', 'waiting_customer')),
+    last_inbound_at      TIMESTAMPTZ,
+    last_outbound_at     TIMESTAMPTZ,
+    service_window_until TIMESTAMPTZ,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, channel, recipient)
+);
+
+CREATE INDEX idx_conversations_tenant_recipient ON messaging.conversations (tenant_id, channel, recipient);
+CREATE INDEX idx_conversations_service_window ON messaging.conversations (tenant_id, channel, service_window_until) WHERE service_window_until IS NOT NULL;
+
 CREATE TABLE messaging.messages (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id           UUID NOT NULL,
@@ -163,6 +181,7 @@ ALTER TABLE messaging.provider_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.consent_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messaging.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.segments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.segment_contacts ENABLE ROW LEVEL SECURITY;
@@ -177,6 +196,8 @@ CREATE POLICY tenant_isolation_templates ON messaging.templates
 CREATE POLICY tenant_isolation_contacts ON messaging.contacts
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 CREATE POLICY tenant_isolation_consent_records ON messaging.consent_records
+    USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE POLICY tenant_isolation_conversations ON messaging.conversations
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 CREATE POLICY tenant_isolation_messages ON messaging.messages
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
