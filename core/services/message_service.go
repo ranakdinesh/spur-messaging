@@ -125,7 +125,7 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 				Direction:   "outbound",
 				Recipient:   req.Recipient,
 				MessageType: req.MessageType,
-				Status:      domain.MessageStatusFailed, // Using failed with error code for "dropped"
+				Status:      domain.MessageStatusSuppressed,
 				ErrorCode:   new("SUPPRESSED"),
 				CreatedAt:   time.Now(),
 				Metadata:    req.Metadata,
@@ -160,7 +160,7 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 					Direction:   "outbound",
 					Recipient:   req.Recipient,
 					MessageType: req.MessageType,
-					Status:      domain.MessageStatusFailed,
+					Status:      domain.MessageStatusSuppressed,
 					ErrorCode:   new("UNSUBSCRIBED"),
 					CreatedAt:   time.Now(),
 					Metadata:    req.Metadata,

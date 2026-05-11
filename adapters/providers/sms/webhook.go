@@ -96,6 +96,8 @@ func mapTwilioStatus(s string) domain.MessageStatus {
 	switch s {
 	case "queued":
 		return domain.MessageStatusQueued
+	case "accepted", "sending":
+		return domain.MessageStatusProviderSubmitted
 	case "sent":
 		return domain.MessageStatusSent
 	case "delivered":

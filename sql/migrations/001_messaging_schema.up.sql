@@ -80,7 +80,7 @@ CREATE TABLE messaging.messages (
     media_type          TEXT,
     provider_message_id TEXT,
     idempotency_key     TEXT,
-    status              TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'delivered', 'read', 'failed')),
+    status              TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('created', 'validated', 'queued', 'provider_submitted', 'sent', 'delivered', 'read', 'opened', 'clicked', 'replied', 'failed', 'cancelled', 'expired', 'suppressed')),
     error_code          TEXT,
     error_message       TEXT,
     cost                DECIMAL(10, 6),
@@ -89,6 +89,7 @@ CREATE TABLE messaging.messages (
     read_at             TIMESTAMPTZ,
     failed_at           TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     metadata            JSONB NOT NULL DEFAULT '{}'
 );
 

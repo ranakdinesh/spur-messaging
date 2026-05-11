@@ -210,6 +210,10 @@ func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	if status := q.Get("status"); status != "" {
 		s := domain.MessageStatus(status)
+		if !domain.IsValidMessageStatus(s) {
+			RespondValidationError(w, "status", "invalid message status")
+			return
+		}
 		filter.Status = &s
 	}
 	if recipient := q.Get("recipient"); recipient != "" {

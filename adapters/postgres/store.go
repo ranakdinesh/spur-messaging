@@ -114,6 +114,7 @@ func (s *Store) List(ctx context.Context, tenantID uuid.UUID, filter ports.Messa
 			ReadAt:            r.ReadAt,
 			FailedAt:          r.FailedAt,
 			CreatedAt:         r.CreatedAt,
+			UpdatedAt:         r.UpdatedAt,
 			Metadata:          r.Metadata,
 		}))
 		total = int(r.TotalCount)
@@ -134,7 +135,7 @@ func (s *Store) UpdateStatusByProviderID(ctx context.Context, providerMsgID stri
 	return s.q.UpdateMessageStatusByProviderID(ctx, gen.UpdateMessageStatusByProviderIDParams{
 		ProviderMessageID: fromString(providerMsgID),
 		Status:            string(status),
-		DeliveredAt:       fromTimePtr(&timestamp),
+		SentAt:            fromTimePtr(&timestamp),
 	})
 }
 
@@ -190,6 +191,7 @@ func (s *Store) GetByCampaignID(ctx context.Context, tenantID, campaignID uuid.U
 			ReadAt:            r.ReadAt,
 			FailedAt:          r.FailedAt,
 			CreatedAt:         r.CreatedAt,
+			UpdatedAt:         r.UpdatedAt,
 			Metadata:          r.Metadata,
 		}))
 		total = int(r.TotalCount)

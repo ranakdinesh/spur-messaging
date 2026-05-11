@@ -54,7 +54,7 @@ INSERT INTO messaging.messages (
     cost, sent_at, delivered_at, read_at, failed_at, metadata
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
-) RETURNING id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata
+) RETURNING id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata
 `
 
 type CreateMessageParams struct {
@@ -142,13 +142,14 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.ReadAt,
 		&i.FailedAt,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.Metadata,
 	)
 	return i, err
 }
 
 const getMessageByID = `-- name: GetMessageByID :one
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata FROM messaging.messages
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -187,13 +188,14 @@ func (q *Queries) GetMessageByID(ctx context.Context, arg GetMessageByIDParams) 
 		&i.ReadAt,
 		&i.FailedAt,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.Metadata,
 	)
 	return i, err
 }
 
 const getMessageByIdempotencyKey = `-- name: GetMessageByIdempotencyKey :one
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata FROM messaging.messages
 WHERE tenant_id = $1 AND idempotency_key = $2
 `
 
@@ -232,13 +234,14 @@ func (q *Queries) GetMessageByIdempotencyKey(ctx context.Context, arg GetMessage
 		&i.ReadAt,
 		&i.FailedAt,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.Metadata,
 	)
 	return i, err
 }
 
 const getMessageByProviderID = `-- name: GetMessageByProviderID :one
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata FROM messaging.messages
 WHERE provider_message_id = $1
 `
 
@@ -272,13 +275,14 @@ func (q *Queries) GetMessageByProviderID(ctx context.Context, providerMessageID 
 		&i.ReadAt,
 		&i.FailedAt,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.Metadata,
 	)
 	return i, err
 }
 
 const getMessagesByCampaignID = `-- name: GetMessagesByCampaignID :many
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata, count(*) OVER() as total_count
 FROM messaging.messages
 WHERE tenant_id = $1 AND campaign_id = $2
 ORDER BY created_at DESC
@@ -319,6 +323,7 @@ type GetMessagesByCampaignIDRow struct {
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
 	FailedAt          pgtype.Timestamptz `json:"failed_at"`
 	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
 	Metadata          json.RawMessage    `json:"metadata"`
 	TotalCount        int64              `json:"total_count"`
 }
@@ -364,6 +369,7 @@ func (q *Queries) GetMessagesByCampaignID(ctx context.Context, arg GetMessagesBy
 			&i.ReadAt,
 			&i.FailedAt,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 			&i.Metadata,
 			&i.TotalCount,
 		); err != nil {
@@ -378,7 +384,7 @@ func (q *Queries) GetMessagesByCampaignID(ctx context.Context, arg GetMessagesBy
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, updated_at, metadata, count(*) OVER() as total_count
 FROM messaging.messages
 WHERE tenant_id = $1
 AND ($2::text IS NULL OR channel = $2)
@@ -430,6 +436,7 @@ type ListMessagesRow struct {
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
 	FailedAt          pgtype.Timestamptz `json:"failed_at"`
 	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
 	Metadata          json.RawMessage    `json:"metadata"`
 	TotalCount        int64              `json:"total_count"`
 }
@@ -480,6 +487,7 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]L
 			&i.ReadAt,
 			&i.FailedAt,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 			&i.Metadata,
 			&i.TotalCount,
 		); err != nil {
@@ -497,6 +505,10 @@ const updateMessageStatus = `-- name: UpdateMessageStatus :exec
 UPDATE messaging.messages
 SET status = $3,
     provider_message_id = COALESCE($4, provider_message_id),
+    sent_at = CASE WHEN $3 IN ('provider_submitted', 'sent') THEN COALESCE(sent_at, now()) ELSE sent_at END,
+    delivered_at = CASE WHEN $3 = 'delivered' THEN COALESCE(delivered_at, now()) ELSE delivered_at END,
+    read_at = CASE WHEN $3 IN ('read', 'opened', 'clicked') THEN COALESCE(read_at, now()) ELSE read_at END,
+    failed_at = CASE WHEN $3 IN ('failed', 'cancelled', 'expired', 'suppressed') THEN COALESCE(failed_at, now()) ELSE failed_at END,
     updated_at = now()
 WHERE tenant_id = $1 AND id = $2
 `
@@ -521,9 +533,10 @@ func (q *Queries) UpdateMessageStatus(ctx context.Context, arg UpdateMessageStat
 const updateMessageStatusByProviderID = `-- name: UpdateMessageStatusByProviderID :exec
 UPDATE messaging.messages
 SET status = $2,
+    sent_at = CASE WHEN $2 IN ('provider_submitted', 'sent') THEN $3 ELSE sent_at END,
     delivered_at = CASE WHEN $2 = 'delivered' THEN $3 ELSE delivered_at END,
-    read_at = CASE WHEN $2 = 'read' THEN $3 ELSE read_at END,
-    failed_at = CASE WHEN $2 = 'failed' THEN $3 ELSE failed_at END,
+    read_at = CASE WHEN $2 IN ('read', 'opened', 'clicked') THEN $3 ELSE read_at END,
+    failed_at = CASE WHEN $2 IN ('failed', 'cancelled', 'expired', 'suppressed') THEN $3 ELSE failed_at END,
     updated_at = now()
 WHERE provider_message_id = $1
 `
@@ -531,10 +544,10 @@ WHERE provider_message_id = $1
 type UpdateMessageStatusByProviderIDParams struct {
 	ProviderMessageID pgtype.Text        `json:"provider_message_id"`
 	Status            string             `json:"status"`
-	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+	SentAt            pgtype.Timestamptz `json:"sent_at"`
 }
 
 func (q *Queries) UpdateMessageStatusByProviderID(ctx context.Context, arg UpdateMessageStatusByProviderIDParams) error {
-	_, err := q.db.Exec(ctx, updateMessageStatusByProviderID, arg.ProviderMessageID, arg.Status, arg.DeliveredAt)
+	_, err := q.db.Exec(ctx, updateMessageStatusByProviderID, arg.ProviderMessageID, arg.Status, arg.SentAt)
 	return err
 }

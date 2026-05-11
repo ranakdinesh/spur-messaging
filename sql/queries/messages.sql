@@ -35,15 +35,20 @@ LIMIT $8 OFFSET $9;
 UPDATE messaging.messages
 SET status = $3,
     provider_message_id = COALESCE($4, provider_message_id),
+    sent_at = CASE WHEN $3 IN ('provider_submitted', 'sent') THEN COALESCE(sent_at, now()) ELSE sent_at END,
+    delivered_at = CASE WHEN $3 = 'delivered' THEN COALESCE(delivered_at, now()) ELSE delivered_at END,
+    read_at = CASE WHEN $3 IN ('read', 'opened', 'clicked') THEN COALESCE(read_at, now()) ELSE read_at END,
+    failed_at = CASE WHEN $3 IN ('failed', 'cancelled', 'expired', 'suppressed') THEN COALESCE(failed_at, now()) ELSE failed_at END,
     updated_at = now()
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: UpdateMessageStatusByProviderID :exec
 UPDATE messaging.messages
 SET status = $2,
+    sent_at = CASE WHEN $2 IN ('provider_submitted', 'sent') THEN $3 ELSE sent_at END,
     delivered_at = CASE WHEN $2 = 'delivered' THEN $3 ELSE delivered_at END,
-    read_at = CASE WHEN $2 = 'read' THEN $3 ELSE read_at END,
-    failed_at = CASE WHEN $2 = 'failed' THEN $3 ELSE failed_at END,
+    read_at = CASE WHEN $2 IN ('read', 'opened', 'clicked') THEN $3 ELSE read_at END,
+    failed_at = CASE WHEN $2 IN ('failed', 'cancelled', 'expired', 'suppressed') THEN $3 ELSE failed_at END,
     updated_at = now()
 WHERE provider_message_id = $1;
 

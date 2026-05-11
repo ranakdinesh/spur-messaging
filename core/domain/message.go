@@ -9,12 +9,51 @@ import (
 type MessageStatus string
 
 const (
-	MessageStatusQueued    MessageStatus = "queued"
-	MessageStatusSent      MessageStatus = "sent"
-	MessageStatusDelivered MessageStatus = "delivered"
-	MessageStatusRead      MessageStatus = "read"
-	MessageStatusFailed    MessageStatus = "failed"
+	MessageStatusCreated           MessageStatus = "created"
+	MessageStatusValidated         MessageStatus = "validated"
+	MessageStatusQueued            MessageStatus = "queued"
+	MessageStatusProviderSubmitted MessageStatus = "provider_submitted"
+	MessageStatusSent              MessageStatus = "sent"
+	MessageStatusDelivered         MessageStatus = "delivered"
+	MessageStatusRead              MessageStatus = "read"
+	MessageStatusOpened            MessageStatus = "opened"
+	MessageStatusClicked           MessageStatus = "clicked"
+	MessageStatusReplied           MessageStatus = "replied"
+	MessageStatusFailed            MessageStatus = "failed"
+	MessageStatusCancelled         MessageStatus = "cancelled"
+	MessageStatusExpired           MessageStatus = "expired"
+	MessageStatusSuppressed        MessageStatus = "suppressed"
 )
+
+var messageStatusRanks = map[MessageStatus]int{
+	MessageStatusCreated:           0,
+	MessageStatusValidated:         10,
+	MessageStatusQueued:            20,
+	MessageStatusProviderSubmitted: 30,
+	MessageStatusSent:              40,
+	MessageStatusDelivered:         50,
+	MessageStatusRead:              60,
+	MessageStatusOpened:            60,
+	MessageStatusClicked:           70,
+	MessageStatusReplied:           80,
+	MessageStatusFailed:            100,
+	MessageStatusCancelled:         100,
+	MessageStatusExpired:           100,
+	MessageStatusSuppressed:        100,
+}
+
+func IsValidMessageStatus(status MessageStatus) bool {
+	_, ok := messageStatusRanks[status]
+	return ok
+}
+
+func MessageStatusRank(status MessageStatus) int {
+	rank, ok := messageStatusRanks[status]
+	if !ok {
+		return -1
+	}
+	return rank
+}
 
 type MessageType string
 
@@ -53,5 +92,6 @@ type Message struct {
 	ReadAt            *time.Time
 	FailedAt          *time.Time
 	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	Metadata          map[string]string // custom tracking key-value pairs
 }

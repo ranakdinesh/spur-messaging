@@ -135,6 +135,10 @@ func (s *Sender) sendWithCfg(ctx context.Context, msg *domain.Message, cfg *doma
 		return err
 	}
 
+	if err := s.messageRepo.UpdateStatus(ctx, msg.TenantID, msg.ID, domain.MessageStatusProviderSubmitted, ""); err != nil {
+		return err
+	}
+
 	var result *ports.ProviderSendResult
 
 	switch msg.Channel {

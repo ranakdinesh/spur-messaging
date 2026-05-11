@@ -110,12 +110,16 @@ func ParsePostmarkWebhook(ctx context.Context, cfg *domain.ProviderConfig, heade
 func mapSendGridStatus(event string) *domain.MessageStatus {
 	var s domain.MessageStatus
 	switch event {
+	case "processed":
+		s = domain.MessageStatusProviderSubmitted
 	case "delivered":
 		s = domain.MessageStatusDelivered
 	case "bounce", "dropped":
 		s = domain.MessageStatusFailed
 	case "open":
-		s = domain.MessageStatusRead // We map open to read for analytics
+		s = domain.MessageStatusOpened
+	case "click":
+		s = domain.MessageStatusClicked
 	default:
 		return nil
 	}
@@ -125,12 +129,16 @@ func mapSendGridStatus(event string) *domain.MessageStatus {
 func mapMailgunStatus(event string) *domain.MessageStatus {
 	var s domain.MessageStatus
 	switch event {
+	case "accepted":
+		s = domain.MessageStatusProviderSubmitted
 	case "delivered":
 		s = domain.MessageStatusDelivered
 	case "failed":
 		s = domain.MessageStatusFailed
 	case "opened":
-		s = domain.MessageStatusRead
+		s = domain.MessageStatusOpened
+	case "clicked":
+		s = domain.MessageStatusClicked
 	default:
 		return nil
 	}
@@ -140,12 +148,16 @@ func mapMailgunStatus(event string) *domain.MessageStatus {
 func mapPostmarkStatus(recordType string) *domain.MessageStatus {
 	var s domain.MessageStatus
 	switch recordType {
+	case "DeliveryDelayed":
+		s = domain.MessageStatusProviderSubmitted
 	case "Delivery":
 		s = domain.MessageStatusDelivered
 	case "Bounce":
 		s = domain.MessageStatusFailed
 	case "Open":
-		s = domain.MessageStatusRead
+		s = domain.MessageStatusOpened
+	case "Click":
+		s = domain.MessageStatusClicked
 	default:
 		return nil
 	}

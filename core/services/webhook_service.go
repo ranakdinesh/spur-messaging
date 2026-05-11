@@ -98,7 +98,7 @@ func (s *WebhookService) processWhatsAppStatus(ctx context.Context, tenantID uui
 	// Section 10A.3: Never downgrade status
 	current, err := s.messageRepo.GetByProviderID(ctx, status.ID)
 	if err == nil {
-		if getStatusRank(domainStatus) <= getStatusRank(current.Status) {
+		if domain.MessageStatusRank(domainStatus) <= domain.MessageStatusRank(current.Status) {
 			s.log.Debug("ignoring out-of-order status update", "provider_msg_id", status.ID, "current", current.Status, "incoming", domainStatus)
 			return
 		}
@@ -125,7 +125,7 @@ func (s *WebhookService) processWhatsAppIncoming(ctx context.Context, tenantID u
 		Sender:            msg.From,
 		MessageType:       domain.MessageType(msg.Type),
 		ProviderMessageID: msg.ID,
-		Status:            domain.MessageStatusDelivered,
+		Status:            domain.MessageStatusReplied,
 		SentAt:            &timestamp,
 		CreatedAt:         time.Now(),
 	}
@@ -151,25 +151,12 @@ func mapWhatsAppStatus(s string) domain.MessageStatus {
 	case "failed":
 		return domain.MessageStatusFailed
 	default:
-		return domain.MessageStatusQueued
+		return domain.MessageStatusProviderSubmitted
 	}
 }
 
 func getStatusRank(s domain.MessageStatus) int {
-	switch s {
-	case domain.MessageStatusQueued:
-		return 0
-	case domain.MessageStatusSent:
-		return 1
-	case domain.MessageStatusDelivered:
-		return 2
-	case domain.MessageStatusRead:
-		return 3
-	case domain.MessageStatusFailed:
-		return 99
-	default:
-		return -1
-	}
+	return domain.MessageStatusRank(s)
 }
 
 func (s *WebhookService) VerifyWhatsAppWebhook(ctx context.Context, mode, token, challenge string) (string, error) {
@@ -250,7 +237,7 @@ func (s *WebhookService) processEmailEvent(ctx context.Context, event ports.Webh
 
 	// 4. Update Message Status (Never downgrade)
 	if event.Status != nil {
-		if getStatusRank(*event.Status) > getStatusRank(msg.Status) {
+		if domain.MessageStatusRank(*event.Status) > domain.MessageStatusRank(msg.Status) {
 			err = s.messageRepo.UpdateStatusByProviderID(ctx, event.ProviderMessageID, *event.Status, event.Timestamp)
 			if err != nil {
 				s.log.Error("failed to update message status from email event", "error", err)

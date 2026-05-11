@@ -55,6 +55,7 @@ func toMessageDomain(m gen.MessagingMessage) domain.Message {
 		ReadAt:            pgTimestamptzToPtr(m.ReadAt),
 		FailedAt:          pgTimestamptzToPtr(m.FailedAt),
 		CreatedAt:         m.CreatedAt,
+		UpdatedAt:         m.UpdatedAt,
 		Metadata:          metadata,
 	}
 }
