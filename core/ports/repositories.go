@@ -52,6 +52,8 @@ type ContactRepository interface {
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 	BulkCreate(ctx context.Context, contacts []domain.Contact) (int, error) // returns count created
 	UpdateOptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, status domain.OptInStatus) error
+	CreateConsentRecord(ctx context.Context, record *domain.ConsentRecord) error
+	ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error)
 	GetBySegment(ctx context.Context, tenantID, segmentID uuid.UUID, page, perPage int) ([]domain.Contact, int, error)
 }
 

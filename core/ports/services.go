@@ -103,8 +103,9 @@ type ContactService interface {
 	Update(ctx context.Context, tenantID, id uuid.UUID, req UpdateContactRequest) (*domain.Contact, error)
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 	BulkImport(ctx context.Context, tenantID uuid.UUID, contacts []CreateContactRequest) (BulkImportResult, error)
-	OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error
-	OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error
+	OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ConsentEvidence) error
+	OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ConsentEvidence) error
+	ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error)
 }
 
 type CreateContactRequest struct {
@@ -121,6 +122,15 @@ type UpdateContactRequest struct {
 	Name       *string
 	Attributes *map[string]string
 	Tags       *[]string
+}
+
+type ConsentEvidence struct {
+	Source    string `json:"source"`
+	Purpose   string `json:"purpose"`
+	Proof     string `json:"proof"`
+	IPAddress string `json:"ip_address"`
+	UserAgent string `json:"user_agent"`
+	Brand     string `json:"brand"`
 }
 
 type WebhookService interface {

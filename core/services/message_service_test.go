@@ -288,6 +288,12 @@ func (r *contactRepoStub) BulkCreate(context.Context, []domain.Contact) (int, er
 func (r *contactRepoStub) UpdateOptIn(context.Context, uuid.UUID, uuid.UUID, domain.Channel, domain.OptInStatus) error {
 	return nil
 }
+func (r *contactRepoStub) CreateConsentRecord(context.Context, *domain.ConsentRecord) error {
+	return nil
+}
+func (r *contactRepoStub) ListConsentRecords(context.Context, uuid.UUID, uuid.UUID, int, int) ([]domain.ConsentRecord, error) {
+	return nil, nil
+}
 func (r *contactRepoStub) GetBySegment(context.Context, uuid.UUID, uuid.UUID, int, int) ([]domain.Contact, int, error) {
 	return nil, 0, nil
 }

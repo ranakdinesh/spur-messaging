@@ -30,6 +30,21 @@ type MessagingCampaign struct {
 	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
+type MessagingConsentRecord struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	ContactID uuid.UUID `json:"contact_id"`
+	Channel   string    `json:"channel"`
+	Status    string    `json:"status"`
+	Source    string    `json:"source"`
+	Purpose   string    `json:"purpose"`
+	Proof     string    `json:"proof"`
+	IpAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	Brand     string    `json:"brand"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type MessagingContact struct {
 	ID            uuid.UUID          `json:"id"`
 	TenantID      uuid.UUID          `json:"tenant_id"`

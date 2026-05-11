@@ -61,6 +61,25 @@ CREATE TABLE messaging.contacts (
 CREATE UNIQUE INDEX idx_contacts_tenant_phone ON messaging.contacts (tenant_id, phone) WHERE phone IS NOT NULL;
 CREATE UNIQUE INDEX idx_contacts_tenant_email ON messaging.contacts (tenant_id, email) WHERE email IS NOT NULL;
 
+-- Consent records capture audit-grade proof for opt-in and opt-out changes.
+CREATE TABLE messaging.consent_records (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID NOT NULL,
+    contact_id UUID NOT NULL REFERENCES messaging.contacts(id) ON DELETE CASCADE,
+    channel    TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'email')),
+    status     TEXT NOT NULL CHECK (status IN ('opted_in', 'opted_out')),
+    source     TEXT NOT NULL DEFAULT 'manual',
+    purpose    TEXT NOT NULL DEFAULT '',
+    proof      TEXT NOT NULL DEFAULT '',
+    ip_address TEXT NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT '',
+    brand      TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_consent_records_contact ON messaging.consent_records (tenant_id, contact_id, created_at DESC);
+CREATE INDEX idx_consent_records_channel ON messaging.consent_records (tenant_id, channel, status, created_at DESC);
+
 -- Messages (outbound and inbound)
 CREATE TABLE messaging.messages (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,6 +162,7 @@ CREATE TABLE messaging.campaigns (
 ALTER TABLE messaging.provider_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messaging.consent_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.segments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.segment_contacts ENABLE ROW LEVEL SECURITY;
@@ -155,6 +175,8 @@ CREATE POLICY tenant_isolation_provider_configs ON messaging.provider_configs
 CREATE POLICY tenant_isolation_templates ON messaging.templates
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 CREATE POLICY tenant_isolation_contacts ON messaging.contacts
+    USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE POLICY tenant_isolation_consent_records ON messaging.consent_records
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 CREATE POLICY tenant_isolation_messages ON messaging.messages
     USING (tenant_id = current_setting('app.tenant_id')::uuid);

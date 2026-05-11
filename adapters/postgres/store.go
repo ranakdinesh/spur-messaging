@@ -472,6 +472,43 @@ func (s *Store) UpdateOptIn(ctx context.Context, tenantID, id uuid.UUID, channel
 	})
 }
 
+func (s *Store) CreateConsentRecord(ctx context.Context, record *domain.ConsentRecord) error {
+	row, err := s.q.CreateConsentRecord(ctx, gen.CreateConsentRecordParams{
+		TenantID:  record.TenantID,
+		ContactID: record.ContactID,
+		Channel:   string(record.Channel),
+		Status:    string(record.Status),
+		Source:    record.Source,
+		Purpose:   record.Purpose,
+		Proof:     record.Proof,
+		IpAddress: record.IPAddress,
+		UserAgent: record.UserAgent,
+		Brand:     record.Brand,
+	})
+	if err != nil {
+		return err
+	}
+	*record = toConsentRecordDomain(row)
+	return nil
+}
+
+func (s *Store) ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error) {
+	rows, err := s.q.ListConsentRecords(ctx, gen.ListConsentRecordsParams{
+		TenantID:  tenantID,
+		ContactID: contactID,
+		Limit:     int32(perPage),
+		Offset:    int32((page - 1) * perPage),
+	})
+	if err != nil {
+		return nil, err
+	}
+	records := make([]domain.ConsentRecord, 0, len(rows))
+	for _, row := range rows {
+		records = append(records, toConsentRecordDomain(row))
+	}
+	return records, nil
+}
+
 // CampaignRepository
 func (s *Store) CreateCampaign(ctx context.Context, campaign *domain.Campaign) error {
 	params, _ := json.Marshal(campaign.TemplateParams)

@@ -64,6 +64,12 @@ func (a contactRepoAdapter) Delete(ctx context.Context, tenantID, id uuid.UUID) 
 func (a contactRepoAdapter) UpdateOptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, status domain.OptInStatus) error {
 	return a.Store.UpdateOptIn(ctx, tenantID, id, channel, status)
 }
+func (a contactRepoAdapter) CreateConsentRecord(ctx context.Context, record *domain.ConsentRecord) error {
+	return a.Store.CreateConsentRecord(ctx, record)
+}
+func (a contactRepoAdapter) ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error) {
+	return a.Store.ListConsentRecords(ctx, tenantID, contactID, page, perPage)
+}
 func (a contactRepoAdapter) GetBySegment(ctx context.Context, tenantID, segmentID uuid.UUID, page, perPage int) ([]domain.Contact, int, error) {
 	return a.Store.ResolveContacts(ctx, tenantID, segmentID, page, perPage)
 }

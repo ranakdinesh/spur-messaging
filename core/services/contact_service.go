@@ -199,50 +199,93 @@ func (s *ContactService) BulkImport(ctx context.Context, tenantID uuid.UUID, req
 	return result, nil
 }
 
-func (s *ContactService) OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error {
+func (s *ContactService) OptIn(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ports.ConsentEvidence) error {
 	contact, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
 
 	// Section 10A.2: Idempotent — return success if already opted in
-	var currentStatus domain.OptInStatus
-	switch channel {
-	case domain.ChannelWhatsApp:
-		currentStatus = contact.OptInWhatsApp
-	case domain.ChannelSMS:
-		currentStatus = contact.OptInSMS
-	case domain.ChannelEmail:
-		currentStatus = contact.OptInEmail
+	currentStatus, err := contactOptInStatus(contact, channel)
+	if err != nil {
+		return err
 	}
 
 	if currentStatus == domain.OptInStatusOptedIn {
 		return nil
 	}
 
-	return s.repo.UpdateOptIn(ctx, tenantID, id, channel, domain.OptInStatusOptedIn)
+	if err := s.repo.UpdateOptIn(ctx, tenantID, id, channel, domain.OptInStatusOptedIn); err != nil {
+		return err
+	}
+	return s.repo.CreateConsentRecord(ctx, buildConsentRecord(tenantID, id, channel, domain.OptInStatusOptedIn, consent))
 }
 
-func (s *ContactService) OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel) error {
+func (s *ContactService) OptOut(ctx context.Context, tenantID, id uuid.UUID, channel domain.Channel, consent ports.ConsentEvidence) error {
 	contact, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
 
 	// Section 10A.2: Idempotent — return success if already opted out
-	var currentStatus domain.OptInStatus
-	switch channel {
-	case domain.ChannelWhatsApp:
-		currentStatus = contact.OptInWhatsApp
-	case domain.ChannelSMS:
-		currentStatus = contact.OptInSMS
-	case domain.ChannelEmail:
-		currentStatus = contact.OptInEmail
+	currentStatus, err := contactOptInStatus(contact, channel)
+	if err != nil {
+		return err
 	}
 
 	if currentStatus == domain.OptInStatusOptedOut {
 		return nil
 	}
 
-	return s.repo.UpdateOptIn(ctx, tenantID, id, channel, domain.OptInStatusOptedOut)
+	if err := s.repo.UpdateOptIn(ctx, tenantID, id, channel, domain.OptInStatusOptedOut); err != nil {
+		return err
+	}
+	return s.repo.CreateConsentRecord(ctx, buildConsentRecord(tenantID, id, channel, domain.OptInStatusOptedOut, consent))
+}
+
+func (s *ContactService) ListConsentRecords(ctx context.Context, tenantID, contactID uuid.UUID, page, perPage int) ([]domain.ConsentRecord, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+	return s.repo.ListConsentRecords(ctx, tenantID, contactID, page, perPage)
+}
+
+func contactOptInStatus(contact *domain.Contact, channel domain.Channel) (domain.OptInStatus, error) {
+	switch channel {
+	case domain.ChannelWhatsApp:
+		return contact.OptInWhatsApp, nil
+	case domain.ChannelSMS:
+		return contact.OptInSMS, nil
+	case domain.ChannelEmail:
+		return contact.OptInEmail, nil
+	default:
+		return "", domain.NewValidationError("channel", "channel must be whatsapp, sms, or email")
+	}
+}
+
+func buildConsentRecord(tenantID, contactID uuid.UUID, channel domain.Channel, status domain.OptInStatus, evidence ports.ConsentEvidence) *domain.ConsentRecord {
+	source := evidence.Source
+	if source == "" {
+		source = "manual"
+	}
+	return &domain.ConsentRecord{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		ContactID: contactID,
+		Channel:   channel,
+		Status:    status,
+		Source:    source,
+		Purpose:   evidence.Purpose,
+		Proof:     evidence.Proof,
+		IPAddress: evidence.IPAddress,
+		UserAgent: evidence.UserAgent,
+		Brand:     evidence.Brand,
+		CreatedAt: time.Now(),
+	}
 }

@@ -21,6 +21,8 @@ type Querier interface {
 	CountMessagesByCampaign(ctx context.Context, campaignID pgtype.UUID) (int64, error)
 	// sql/queries/campaigns.sql
 	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (MessagingCampaign, error)
+	// sql/queries/consent_records.sql
+	CreateConsentRecord(ctx context.Context, arg CreateConsentRecordParams) (MessagingConsentRecord, error)
 	// sql/queries/contacts.sql
 	CreateContact(ctx context.Context, arg CreateContactParams) (MessagingContact, error)
 	// sql/queries/email_events.sql
@@ -79,6 +81,7 @@ type Querier interface {
 	IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error)
 	IsUnsubscribed(ctx context.Context, arg IsUnsubscribedParams) (bool, error)
 	ListCampaigns(ctx context.Context, arg ListCampaignsParams) ([]ListCampaignsRow, error)
+	ListConsentRecords(ctx context.Context, arg ListConsentRecordsParams) ([]MessagingConsentRecord, error)
 	ListContacts(ctx context.Context, arg ListContactsParams) ([]ListContactsRow, error)
 	ListEmailTemplates(ctx context.Context, arg ListEmailTemplatesParams) ([]ListEmailTemplatesRow, error)
 	ListMessages(ctx context.Context, arg ListMessagesParams) ([]ListMessagesRow, error)
