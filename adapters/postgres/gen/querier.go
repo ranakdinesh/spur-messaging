@@ -51,8 +51,10 @@ type Querier interface {
 	DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) error
 	DeleteUnsubscribe(ctx context.Context, arg DeleteUnsubscribeParams) error
 	ExistsByProviderEventID(ctx context.Context, providerEventID pgtype.Text) (bool, error)
+	AddConversationNote(ctx context.Context, arg AddConversationNoteParams) (MessagingConversation, error)
 	// sql/queries/conversations.sql
 	GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error)
+	GetConversationByID(ctx context.Context, arg GetConversationByIDParams) (MessagingConversation, error)
 	GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams) (MessagingCampaign, error)
 	GetCampaignStats(ctx context.Context, arg GetCampaignStatsParams) (json.RawMessage, error)
 	GetContactByEmail(ctx context.Context, arg GetContactByEmailParams) (MessagingContact, error)
@@ -83,6 +85,7 @@ type Querier interface {
 	IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error)
 	IsUnsubscribed(ctx context.Context, arg IsUnsubscribedParams) (bool, error)
 	ListCampaigns(ctx context.Context, arg ListCampaignsParams) ([]ListCampaignsRow, error)
+	ListConversations(ctx context.Context, arg ListConversationsParams) ([]ListConversationsRow, error)
 	ListConsentRecords(ctx context.Context, arg ListConsentRecordsParams) ([]MessagingConsentRecord, error)
 	ListContacts(ctx context.Context, arg ListContactsParams) ([]ListContactsRow, error)
 	ListEmailTemplates(ctx context.Context, arg ListEmailTemplatesParams) ([]ListEmailTemplatesRow, error)
@@ -97,6 +100,7 @@ type Querier interface {
 	UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (MessagingCampaign, error)
 	UpdateCampaignStats(ctx context.Context, arg UpdateCampaignStatsParams) error
 	UpdateCampaignStatus(ctx context.Context, arg UpdateCampaignStatusParams) error
+	UpdateConversationInbox(ctx context.Context, arg UpdateConversationInboxParams) (MessagingConversation, error)
 	UpdateContact(ctx context.Context, arg UpdateContactParams) (MessagingContact, error)
 	UpdateEmailTemplate(ctx context.Context, arg UpdateEmailTemplateParams) (MessagingEmailTemplate, error)
 	UpdateMessageStatus(ctx context.Context, arg UpdateMessageStatusParams) error

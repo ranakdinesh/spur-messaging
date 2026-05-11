@@ -10,6 +10,7 @@ func RegisterRoutes(r chi.Router,
 	emailTmplH *EmailTemplateHandler,
 	campH *CampaignHandler,
 	contactH *ContactHandler,
+	convH *ConversationHandler,
 	segmentH *SegmentHandler,
 	provH *ProviderHandler,
 	unsubH *UnsubscribeHandler,
@@ -49,6 +50,12 @@ func RegisterRoutes(r chi.Router,
 		r.Post("/send-bulk", msgH.SendBulkMessages) // messaging:messages:send_bulk
 		r.Get("/messages", msgH.ListMessages)       // messaging:messages:read
 		r.Get("/messages/{id}", msgH.GetMessage)    // messaging:messages:read
+
+		// Conversations / Inbox
+		r.Get("/conversations", convH.ListConversations)         // messaging:conversations:read
+		r.Get("/conversations/{id}", convH.GetConversation)      // messaging:conversations:read
+		r.Patch("/conversations/{id}", convH.UpdateConversation) // messaging:conversations:write / assign
+		r.Post("/conversations/{id}/notes", convH.AddNote)       // messaging:conversations:write
 
 		// Contacts
 		r.Post("/contacts", contactH.CreateContact)                   // messaging:contacts:write

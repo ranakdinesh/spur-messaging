@@ -25,6 +25,32 @@ type ConversationRepository interface {
 	GetActiveByRecipient(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, at time.Time) (*domain.Conversation, error)
 	UpsertInbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, inboundAt time.Time) (*domain.Conversation, error)
 	UpsertOutbound(ctx context.Context, tenantID uuid.UUID, channel domain.Channel, recipient string, outboundAt time.Time) (*domain.Conversation, error)
+	GetConversationByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Conversation, error)
+	ListConversations(ctx context.Context, tenantID uuid.UUID, filter ConversationFilter) ([]domain.Conversation, int, error)
+	UpdateConversation(ctx context.Context, tenantID, id uuid.UUID, update ConversationUpdate) (*domain.Conversation, error)
+	AddConversationNote(ctx context.Context, tenantID, id uuid.UUID, note domain.ConversationNote) (*domain.Conversation, error)
+}
+
+type ConversationFilter struct {
+	Channel         *domain.Channel
+	Status          *domain.ConversationStatus
+	HandoffStatus   *domain.ConversationHandoffStatus
+	AssignedAgentID *uuid.UUID
+	Recipient       *string
+	Tag             *string
+	Page            int
+	PerPage         int
+}
+
+type ConversationUpdate struct {
+	Status             *domain.ConversationStatus
+	HandoffStatus      *domain.ConversationHandoffStatus
+	AssignedAgentID    *uuid.UUID
+	AssignedTeam       *string
+	Priority           *domain.ConversationPriority
+	Tags               *[]string
+	FirstResponseDueAt *time.Time
+	ResolutionDueAt    *time.Time
 }
 
 type MessageFilter struct {

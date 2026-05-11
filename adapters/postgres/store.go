@@ -262,6 +262,109 @@ func (s *Store) UpsertOutbound(ctx context.Context, tenantID uuid.UUID, channel 
 	return &conversation, nil
 }
 
+func (s *Store) GetConversationByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Conversation, error) {
+	row, err := s.q.GetConversationByID(ctx, gen.GetConversationByIDParams{TenantID: tenantID, ID: id})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
+func (s *Store) ListConversations(ctx context.Context, tenantID uuid.UUID, filter ports.ConversationFilter) ([]domain.Conversation, int, error) {
+	arg := gen.ListConversationsParams{
+		TenantID:        tenantID,
+		Channel:         derefString(fromStringPtr((*string)(filter.Channel))),
+		Status:          derefString(fromStringPtr((*string)(filter.Status))),
+		HandoffStatus:   derefString(fromStringPtr((*string)(filter.HandoffStatus))),
+		AssignedAgentID: fromUUIDPtr(filter.AssignedAgentID),
+		Recipient:       derefString(fromStringPtr(filter.Recipient)),
+		Tag:             derefString(fromStringPtr(filter.Tag)),
+		Limit:           int32(filter.PerPage),
+		Offset:          int32((filter.Page - 1) * filter.PerPage),
+	}
+	rows, err := s.q.ListConversations(ctx, arg)
+	if err != nil {
+		return nil, 0, err
+	}
+	conversations := make([]domain.Conversation, 0, len(rows))
+	total := 0
+	for _, row := range rows {
+		conversations = append(conversations, toConversationDomain(gen.MessagingConversation{
+			ID:                 row.ID,
+			TenantID:           row.TenantID,
+			Channel:            row.Channel,
+			Recipient:          row.Recipient,
+			Status:             row.Status,
+			HandoffStatus:      row.HandoffStatus,
+			AssignedAgentID:    row.AssignedAgentID,
+			AssignedTeam:       row.AssignedTeam,
+			Priority:           row.Priority,
+			Tags:               row.Tags,
+			InternalNotes:      row.InternalNotes,
+			LastInboundAt:      row.LastInboundAt,
+			LastOutboundAt:     row.LastOutboundAt,
+			ServiceWindowUntil: row.ServiceWindowUntil,
+			FirstResponseDueAt: row.FirstResponseDueAt,
+			ResolutionDueAt:    row.ResolutionDueAt,
+			ClosedAt:           row.ClosedAt,
+			CreatedAt:          row.CreatedAt,
+			UpdatedAt:          row.UpdatedAt,
+		}))
+		total = int(row.TotalCount)
+	}
+	return conversations, total, nil
+}
+
+func (s *Store) UpdateConversation(ctx context.Context, tenantID, id uuid.UUID, update ports.ConversationUpdate) (*domain.Conversation, error) {
+	var tags []string
+	if update.Tags != nil {
+		tags = *update.Tags
+	}
+	row, err := s.q.UpdateConversationInbox(ctx, gen.UpdateConversationInboxParams{
+		TenantID:           tenantID,
+		ID:                 id,
+		Status:             fromStringPtr((*string)(update.Status)),
+		HandoffStatus:      fromStringPtr((*string)(update.HandoffStatus)),
+		AssignedAgentID:    fromUUIDPtr(update.AssignedAgentID),
+		AssignedTeam:       fromStringPtr(update.AssignedTeam),
+		Priority:           fromStringPtr((*string)(update.Priority)),
+		Tags:               tags,
+		FirstResponseDueAt: fromTimePtr(update.FirstResponseDueAt),
+		ResolutionDueAt:    fromTimePtr(update.ResolutionDueAt),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
+func (s *Store) AddConversationNote(ctx context.Context, tenantID, id uuid.UUID, note domain.ConversationNote) (*domain.Conversation, error) {
+	row, err := s.q.AddConversationNote(ctx, gen.AddConversationNoteParams{
+		TenantID: tenantID,
+		ID:       id,
+		Column3:  note.ID.String(),
+		Column4:  note.AuthorID.String(),
+		Column5:  note.Body,
+		Column6:  fromTimePtr(&note.CreatedAt),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	conversation := toConversationDomain(row)
+	return &conversation, nil
+}
+
 // TemplateRepository
 func (s *Store) CreateTemplate(ctx context.Context, tmpl *domain.Template) error {
 	comp, _ := json.Marshal(tmpl.Components)

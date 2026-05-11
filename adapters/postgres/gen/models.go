@@ -69,9 +69,17 @@ type MessagingConversation struct {
 	Recipient          string             `json:"recipient"`
 	Status             string             `json:"status"`
 	HandoffStatus      string             `json:"handoff_status"`
+	AssignedAgentID    pgtype.UUID        `json:"assigned_agent_id"`
+	AssignedTeam       pgtype.Text        `json:"assigned_team"`
+	Priority           string             `json:"priority"`
+	Tags               []string           `json:"tags"`
+	InternalNotes      []byte             `json:"internal_notes"`
 	LastInboundAt      pgtype.Timestamptz `json:"last_inbound_at"`
 	LastOutboundAt     pgtype.Timestamptz `json:"last_outbound_at"`
 	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
+	FirstResponseDueAt pgtype.Timestamptz `json:"first_response_due_at"`
+	ResolutionDueAt    pgtype.Timestamptz `json:"resolution_due_at"`
+	ClosedAt           pgtype.Timestamptz `json:"closed_at"`
 	CreatedAt          time.Time          `json:"created_at"`
 	UpdatedAt          time.Time          `json:"updated_at"`
 }

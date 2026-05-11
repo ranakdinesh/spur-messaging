@@ -28,4 +28,8 @@ const (
 	permMessagesRead     = msgpermissions.MessagesRead
 	permMessagesSend     = msgpermissions.MessagesSend
 	permMessagesSendBulk = msgpermissions.MessagesSendBulk
+
+	permConversationsRead   = msgpermissions.ConversationsRead
+	permConversationsWrite  = msgpermissions.ConversationsWrite
+	permConversationsAssign = msgpermissions.ConversationsAssign
 )

@@ -94,6 +94,7 @@ type Services struct {
 	EmailAnalyticsService ports.EmailAnalyticsService
 	UnsubscribeService    ports.UnsubscribeService
 	SuppressionService    ports.SuppressionService
+	ConversationService   ports.ConversationService
 }
 
 // Module is the messaging module instance
@@ -106,6 +107,7 @@ type Module struct {
 		emailTemplate *http.EmailTemplateHandler
 		campaign      *http.CampaignHandler
 		contact       *http.ContactHandler
+		conversation  *http.ConversationHandler
 		segment       *http.SegmentHandler
 		provider      *http.ProviderHandler
 		unsubscribe   *http.UnsubscribeHandler
@@ -177,6 +179,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
 	emailAnalyticsSvc := services.NewEmailAnalyticsService(emailEventRepo)
 	emailSenderSvc := services.NewEmailSender(messageSvc)
+	conversationSvc := services.NewConversationService(store)
 	webhookSvc := services.NewWebhookService(msgRepo, store, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, log)
 
 	// 7. Create handlers
@@ -191,6 +194,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 			EmailAnalyticsService: emailAnalyticsSvc,
 			UnsubscribeService:    unsubscribeSvc,
 			SuppressionService:    suppressionSvc,
+			ConversationService:   conversationSvc,
 		},
 		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
 			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
@@ -202,6 +206,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.handlers.emailTemplate = http.NewEmailTemplateHandler(emailTemplateSvc)
 	m.handlers.campaign = http.NewCampaignHandler(campaignSvc)
 	m.handlers.contact = http.NewContactHandler(contactSvc)
+	m.handlers.conversation = http.NewConversationHandler(conversationSvc)
 	m.handlers.segment = http.NewSegmentHandler(segmentServiceAdapter{store})
 	m.handlers.provider = http.NewProviderHandler(providerConfigRepo, messageSvc)
 	m.handlers.unsubscribe = http.NewUnsubscribeHandler(unsubscribeSvc)
@@ -246,6 +251,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		m.handlers.emailTemplate,
 		m.handlers.campaign,
 		m.handlers.contact,
+		m.handlers.conversation,
 		m.handlers.segment,
 		m.handlers.provider,
 		m.handlers.unsubscribe,

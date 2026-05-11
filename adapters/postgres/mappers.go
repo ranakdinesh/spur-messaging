@@ -126,6 +126,10 @@ func toConsentRecordDomain(r gen.MessagingConsentRecord) domain.ConsentRecord {
 }
 
 func toConversationDomain(c gen.MessagingConversation) domain.Conversation {
+	var notes []domain.ConversationNote
+	if len(c.InternalNotes) > 0 {
+		_ = json.Unmarshal(c.InternalNotes, &notes)
+	}
 	return domain.Conversation{
 		ID:                 c.ID,
 		TenantID:           c.TenantID,
@@ -133,9 +137,17 @@ func toConversationDomain(c gen.MessagingConversation) domain.Conversation {
 		Recipient:          c.Recipient,
 		Status:             domain.ConversationStatus(c.Status),
 		HandoffStatus:      domain.ConversationHandoffStatus(c.HandoffStatus),
+		AssignedAgentID:    pgUUIDToPtr(c.AssignedAgentID),
+		AssignedTeam:       pgTextToStringPtr(c.AssignedTeam),
+		Priority:           domain.ConversationPriority(c.Priority),
+		Tags:               c.Tags,
+		Notes:              notes,
 		LastInboundAt:      pgTimestamptzToPtr(c.LastInboundAt),
 		LastOutboundAt:     pgTimestamptzToPtr(c.LastOutboundAt),
 		ServiceWindowUntil: pgTimestamptzToPtr(c.ServiceWindowUntil),
+		FirstResponseDueAt: pgTimestamptzToPtr(c.FirstResponseDueAt),
+		ResolutionDueAt:    pgTimestamptzToPtr(c.ResolutionDueAt),
+		ClosedAt:           pgTimestamptzToPtr(c.ClosedAt),
 		CreatedAt:          c.CreatedAt,
 		UpdatedAt:          c.UpdatedAt,
 	}

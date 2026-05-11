@@ -500,6 +500,36 @@ func (r *conversationRepoStub) UpsertOutbound(_ context.Context, tenantID uuid.U
 	return &active, nil
 }
 
+func (r *conversationRepoStub) GetConversationByID(_ context.Context, tenantID, id uuid.UUID) (*domain.Conversation, error) {
+	if r.active == nil || r.active.TenantID != tenantID || r.active.ID != id {
+		return nil, domain.ErrNotFound
+	}
+	active := *r.active
+	return &active, nil
+}
+
+func (r *conversationRepoStub) ListConversations(context.Context, uuid.UUID, ports.ConversationFilter) ([]domain.Conversation, int, error) {
+	if r.active == nil {
+		return nil, 0, nil
+	}
+	active := *r.active
+	return []domain.Conversation{active}, 1, nil
+}
+
+func (r *conversationRepoStub) UpdateConversation(_ context.Context, tenantID, id uuid.UUID, _ ports.ConversationUpdate) (*domain.Conversation, error) {
+	return r.GetConversationByID(context.Background(), tenantID, id)
+}
+
+func (r *conversationRepoStub) AddConversationNote(_ context.Context, tenantID, id uuid.UUID, note domain.ConversationNote) (*domain.Conversation, error) {
+	conversation, err := r.GetConversationByID(context.Background(), tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	conversation.Notes = append(conversation.Notes, note)
+	r.active = conversation
+	return conversation, nil
+}
+
 func ptrTime(t time.Time) *time.Time {
 	return &t
 }

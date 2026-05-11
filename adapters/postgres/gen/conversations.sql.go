@@ -7,14 +7,52 @@ package gen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getActiveConversationByRecipient = `-- name: GetActiveConversationByRecipient :one
+const conversationColumns = `id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at`
 
-SELECT id, tenant_id, channel, recipient, status, handoff_status, last_inbound_at, last_outbound_at, service_window_until, created_at, updated_at FROM messaging.conversations
+const addConversationNote = `-- name: AddConversationNote :one
+UPDATE messaging.conversations
+SET internal_notes = internal_notes || jsonb_build_array(jsonb_build_object(
+        'id', $3::text,
+        'author_id', $4::text,
+        'body', $5::text,
+        'created_at', $6::timestamptz
+    )),
+    updated_at = now()
+WHERE tenant_id = $1
+  AND id = $2
+RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at
+`
+
+type AddConversationNoteParams struct {
+	TenantID uuid.UUID          `json:"tenant_id"`
+	ID       uuid.UUID          `json:"id"`
+	Column3  string             `json:"column_3"`
+	Column4  string             `json:"column_4"`
+	Column5  string             `json:"column_5"`
+	Column6  pgtype.Timestamptz `json:"column_6"`
+}
+
+func (q *Queries) AddConversationNote(ctx context.Context, arg AddConversationNoteParams) (MessagingConversation, error) {
+	row := q.db.QueryRow(ctx, addConversationNote,
+		arg.TenantID,
+		arg.ID,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+	)
+	return scanMessagingConversation(row)
+}
+
+const getActiveConversationByRecipient = `-- name: GetActiveConversationByRecipient :one
+SELECT id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at FROM messaging.conversations
 WHERE tenant_id = $1
   AND channel = $2
   AND recipient = $3
@@ -30,7 +68,6 @@ type GetActiveConversationByRecipientParams struct {
 	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
 }
 
-// sql/queries/conversations.sql
 func (q *Queries) GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error) {
 	row := q.db.QueryRow(ctx, getActiveConversationByRecipient,
 		arg.TenantID,
@@ -38,21 +75,173 @@ func (q *Queries) GetActiveConversationByRecipient(ctx context.Context, arg GetA
 		arg.Recipient,
 		arg.ServiceWindowUntil,
 	)
-	var i MessagingConversation
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Channel,
-		&i.Recipient,
-		&i.Status,
-		&i.HandoffStatus,
-		&i.LastInboundAt,
-		&i.LastOutboundAt,
-		&i.ServiceWindowUntil,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+	return scanMessagingConversation(row)
+}
+
+const getConversationByID = `-- name: GetConversationByID :one
+SELECT id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at FROM messaging.conversations
+WHERE tenant_id = $1
+  AND id = $2
+`
+
+type GetConversationByIDParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetConversationByID(ctx context.Context, arg GetConversationByIDParams) (MessagingConversation, error) {
+	row := q.db.QueryRow(ctx, getConversationByID, arg.TenantID, arg.ID)
+	return scanMessagingConversation(row)
+}
+
+const listConversations = `-- name: ListConversations :many
+SELECT id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at, count(*) OVER() AS total_count
+FROM messaging.conversations
+WHERE tenant_id = $1
+  AND ($2 = '' OR channel = $2)
+  AND ($3 = '' OR status = $3)
+  AND ($4 = '' OR handoff_status = $4)
+  AND ($5::uuid IS NULL OR assigned_agent_id = $5)
+  AND ($6 = '' OR recipient ILIKE '%' || $6 || '%')
+  AND ($7 = '' OR $7 = ANY(tags))
+ORDER BY updated_at DESC
+LIMIT $8 OFFSET $9
+`
+
+type ListConversationsParams struct {
+	TenantID        uuid.UUID   `json:"tenant_id"`
+	Channel         string      `json:"channel"`
+	Status          string      `json:"status"`
+	HandoffStatus   string      `json:"handoff_status"`
+	AssignedAgentID pgtype.UUID `json:"assigned_agent_id"`
+	Recipient       string      `json:"recipient"`
+	Tag             string      `json:"tag"`
+	Limit           int32       `json:"limit"`
+	Offset          int32       `json:"offset"`
+}
+
+type ListConversationsRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
+	Channel            string             `json:"channel"`
+	Recipient          string             `json:"recipient"`
+	Status             string             `json:"status"`
+	HandoffStatus      string             `json:"handoff_status"`
+	AssignedAgentID    pgtype.UUID        `json:"assigned_agent_id"`
+	AssignedTeam       pgtype.Text        `json:"assigned_team"`
+	Priority           string             `json:"priority"`
+	Tags               []string           `json:"tags"`
+	InternalNotes      []byte             `json:"internal_notes"`
+	LastInboundAt      pgtype.Timestamptz `json:"last_inbound_at"`
+	LastOutboundAt     pgtype.Timestamptz `json:"last_outbound_at"`
+	ServiceWindowUntil pgtype.Timestamptz `json:"service_window_until"`
+	FirstResponseDueAt pgtype.Timestamptz `json:"first_response_due_at"`
+	ResolutionDueAt    pgtype.Timestamptz `json:"resolution_due_at"`
+	ClosedAt           pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
+	TotalCount         int64              `json:"total_count"`
+}
+
+func (q *Queries) ListConversations(ctx context.Context, arg ListConversationsParams) ([]ListConversationsRow, error) {
+	rows, err := q.db.Query(ctx, listConversations,
+		arg.TenantID,
+		arg.Channel,
+		arg.Status,
+		arg.HandoffStatus,
+		arg.AssignedAgentID,
+		arg.Recipient,
+		arg.Tag,
+		arg.Limit,
+		arg.Offset,
 	)
-	return i, err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConversationsRow
+	for rows.Next() {
+		var i ListConversationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Channel,
+			&i.Recipient,
+			&i.Status,
+			&i.HandoffStatus,
+			&i.AssignedAgentID,
+			&i.AssignedTeam,
+			&i.Priority,
+			&i.Tags,
+			&i.InternalNotes,
+			&i.LastInboundAt,
+			&i.LastOutboundAt,
+			&i.ServiceWindowUntil,
+			&i.FirstResponseDueAt,
+			&i.ResolutionDueAt,
+			&i.ClosedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateConversationInbox = `-- name: UpdateConversationInbox :one
+UPDATE messaging.conversations
+SET status = COALESCE($3, status),
+    handoff_status = COALESCE($4, handoff_status),
+    assigned_agent_id = COALESCE($5, assigned_agent_id),
+    assigned_team = COALESCE($6, assigned_team),
+    priority = COALESCE($7, priority),
+    tags = COALESCE($8::text[], tags),
+    first_response_due_at = COALESCE($9, first_response_due_at),
+    resolution_due_at = COALESCE($10, resolution_due_at),
+    closed_at = CASE
+        WHEN $3 = 'closed' THEN COALESCE(closed_at, now())
+        WHEN $3 IN ('open', 'pending') THEN NULL
+        ELSE closed_at
+    END,
+    updated_at = now()
+WHERE tenant_id = $1
+  AND id = $2
+RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at
+`
+
+type UpdateConversationInboxParams struct {
+	TenantID           uuid.UUID          `json:"tenant_id"`
+	ID                 uuid.UUID          `json:"id"`
+	Status             pgtype.Text        `json:"status"`
+	HandoffStatus      pgtype.Text        `json:"handoff_status"`
+	AssignedAgentID    pgtype.UUID        `json:"assigned_agent_id"`
+	AssignedTeam       pgtype.Text        `json:"assigned_team"`
+	Priority           pgtype.Text        `json:"priority"`
+	Tags               []string           `json:"tags"`
+	FirstResponseDueAt pgtype.Timestamptz `json:"first_response_due_at"`
+	ResolutionDueAt    pgtype.Timestamptz `json:"resolution_due_at"`
+}
+
+func (q *Queries) UpdateConversationInbox(ctx context.Context, arg UpdateConversationInboxParams) (MessagingConversation, error) {
+	row := q.db.QueryRow(ctx, updateConversationInbox,
+		arg.TenantID,
+		arg.ID,
+		arg.Status,
+		arg.HandoffStatus,
+		arg.AssignedAgentID,
+		arg.AssignedTeam,
+		arg.Priority,
+		arg.Tags,
+		arg.FirstResponseDueAt,
+		arg.ResolutionDueAt,
+	)
+	return scanMessagingConversation(row)
 }
 
 const upsertConversationInbound = `-- name: UpsertConversationInbound :one
@@ -70,7 +259,7 @@ SET status = 'open',
     last_inbound_at = GREATEST(COALESCE(messaging.conversations.last_inbound_at, EXCLUDED.last_inbound_at), EXCLUDED.last_inbound_at),
     service_window_until = GREATEST(COALESCE(messaging.conversations.service_window_until, EXCLUDED.service_window_until), EXCLUDED.service_window_until),
     updated_at = now()
-RETURNING id, tenant_id, channel, recipient, status, handoff_status, last_inbound_at, last_outbound_at, service_window_until, created_at, updated_at
+RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at
 `
 
 type UpsertConversationInboundParams struct {
@@ -87,21 +276,7 @@ func (q *Queries) UpsertConversationInbound(ctx context.Context, arg UpsertConve
 		arg.Recipient,
 		arg.LastInboundAt,
 	)
-	var i MessagingConversation
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Channel,
-		&i.Recipient,
-		&i.Status,
-		&i.HandoffStatus,
-		&i.LastInboundAt,
-		&i.LastOutboundAt,
-		&i.ServiceWindowUntil,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+	return scanMessagingConversation(row)
 }
 
 const upsertConversationOutbound = `-- name: UpsertConversationOutbound :one
@@ -113,7 +288,7 @@ INSERT INTO messaging.conversations (
 ON CONFLICT (tenant_id, channel, recipient) DO UPDATE
 SET last_outbound_at = GREATEST(COALESCE(messaging.conversations.last_outbound_at, EXCLUDED.last_outbound_at), EXCLUDED.last_outbound_at),
     updated_at = now()
-RETURNING id, tenant_id, channel, recipient, status, handoff_status, last_inbound_at, last_outbound_at, service_window_until, created_at, updated_at
+RETURNING id, tenant_id, channel, recipient, status, handoff_status, assigned_agent_id, assigned_team, priority, tags, internal_notes, last_inbound_at, last_outbound_at, service_window_until, first_response_due_at, resolution_due_at, closed_at, created_at, updated_at
 `
 
 type UpsertConversationOutboundParams struct {
@@ -130,6 +305,10 @@ func (q *Queries) UpsertConversationOutbound(ctx context.Context, arg UpsertConv
 		arg.Recipient,
 		arg.LastOutboundAt,
 	)
+	return scanMessagingConversation(row)
+}
+
+func scanMessagingConversation(row pgx.Row) (MessagingConversation, error) {
 	var i MessagingConversation
 	err := row.Scan(
 		&i.ID,
@@ -138,9 +317,17 @@ func (q *Queries) UpsertConversationOutbound(ctx context.Context, arg UpsertConv
 		&i.Recipient,
 		&i.Status,
 		&i.HandoffStatus,
+		&i.AssignedAgentID,
+		&i.AssignedTeam,
+		&i.Priority,
+		&i.Tags,
+		&i.InternalNotes,
 		&i.LastInboundAt,
 		&i.LastOutboundAt,
 		&i.ServiceWindowUntil,
+		&i.FirstResponseDueAt,
+		&i.ResolutionDueAt,
+		&i.ClosedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

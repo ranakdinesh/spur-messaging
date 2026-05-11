@@ -106,6 +106,18 @@
     {
       "key": "messaging:messages:send_bulk",
       "description": "Send bulk messages."
+    },
+    {
+      "key": "messaging:conversations:read",
+      "description": "Read conversation inbox threads, notes, assignment, and SLA state."
+    },
+    {
+      "key": "messaging:conversations:write",
+      "description": "Update conversation status, handoff state, tags, notes, priority, and SLA fields."
+    },
+    {
+      "key": "messaging:conversations:assign",
+      "description": "Assign conversations to agents or teams."
     }
   ],
   "role_templates": [
@@ -132,7 +144,10 @@
         "messaging:campaigns:execute",
         "messaging:messages:read",
         "messaging:messages:send",
-        "messaging:messages:send_bulk"
+        "messaging:messages:send_bulk",
+        "messaging:conversations:read",
+        "messaging:conversations:write",
+        "messaging:conversations:assign"
       ]
     },
     {
@@ -149,6 +164,9 @@
         "messaging:contacts:read",
         "messaging:messages:read",
         "messaging:messages:send",
+        "messaging:conversations:read",
+        "messaging:conversations:write",
+        "messaging:conversations:assign",
         "messaging:analytics:read"
       ]
     },
@@ -169,7 +187,8 @@
         "messaging:campaigns:write",
         "messaging:campaigns:execute",
         "messaging:messages:read",
-        "messaging:messages:send_bulk"
+        "messaging:messages:send_bulk",
+        "messaging:conversations:read"
       ]
     },
     {
@@ -180,7 +199,9 @@
         "messaging:analytics:read",
         "messaging:contacts:read",
         "messaging:messages:read",
-        "messaging:messages:send"
+        "messaging:messages:send",
+        "messaging:conversations:read",
+        "messaging:conversations:write"
       ]
     },
     {
@@ -194,7 +215,8 @@
         "messaging:contacts:read",
         "messaging:segments:read",
         "messaging:campaigns:read",
-        "messaging:messages:read"
+        "messaging:messages:read",
+        "messaging:conversations:read"
       ]
     }
   ],

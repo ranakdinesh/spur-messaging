@@ -31,6 +31,10 @@ const (
 	MessagesRead     = "messaging:messages:read"
 	MessagesSend     = "messaging:messages:send"
 	MessagesSendBulk = "messaging:messages:send_bulk"
+
+	ConversationsRead   = "messaging:conversations:read"
+	ConversationsWrite  = "messaging:conversations:write"
+	ConversationsAssign = "messaging:conversations:assign"
 )
 
 // Permission describes a permission that can be synced into Identity.
@@ -69,6 +73,9 @@ var Catalog = []Permission{
 	{Key: MessagesRead, Description: "Read message delivery logs."},
 	{Key: MessagesSend, Description: "Send individual messages and test sends."},
 	{Key: MessagesSendBulk, Description: "Send bulk messages."},
+	{Key: ConversationsRead, Description: "Read conversation inbox threads, notes, assignment, and SLA state."},
+	{Key: ConversationsWrite, Description: "Update conversation status, handoff state, tags, notes, priority, and SLA fields."},
+	{Key: ConversationsAssign, Description: "Assign conversations to agents or teams."},
 }
 
 // RoleTemplates groups the messaging permissions into practical tenant roles.
@@ -94,6 +101,9 @@ var RoleTemplates = []RoleTemplate{
 			ContactsRead,
 			MessagesRead,
 			MessagesSend,
+			ConversationsRead,
+			ConversationsWrite,
+			ConversationsAssign,
 			AnalyticsRead,
 		},
 	},
@@ -115,6 +125,7 @@ var RoleTemplates = []RoleTemplate{
 			CampaignsExecute,
 			MessagesRead,
 			MessagesSendBulk,
+			ConversationsRead,
 		},
 	},
 	{
@@ -126,6 +137,8 @@ var RoleTemplates = []RoleTemplate{
 			ContactsRead,
 			MessagesRead,
 			MessagesSend,
+			ConversationsRead,
+			ConversationsWrite,
 		},
 	},
 	{
@@ -140,6 +153,7 @@ var RoleTemplates = []RoleTemplate{
 			SegmentsRead,
 			CampaignsRead,
 			MessagesRead,
+			ConversationsRead,
 		},
 	},
 }

@@ -17,6 +17,24 @@ type MessageService interface {
 	Retry(ctx context.Context, tenantID, id uuid.UUID) (*domain.Message, error)
 }
 
+type ConversationService interface {
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Conversation, error)
+	List(ctx context.Context, tenantID uuid.UUID, filter ConversationFilter) ([]domain.Conversation, int, error)
+	Update(ctx context.Context, tenantID, id uuid.UUID, req UpdateConversationRequest) (*domain.Conversation, error)
+	AddNote(ctx context.Context, tenantID, id, authorID uuid.UUID, body string) (*domain.Conversation, error)
+}
+
+type UpdateConversationRequest struct {
+	Status             *domain.ConversationStatus        `json:"status"`
+	HandoffStatus      *domain.ConversationHandoffStatus `json:"handoff_status"`
+	AssignedAgentID    *uuid.UUID                        `json:"assigned_agent_id"`
+	AssignedTeam       *string                           `json:"assigned_team"`
+	Priority           *domain.ConversationPriority      `json:"priority"`
+	Tags               *[]string                         `json:"tags"`
+	FirstResponseDueAt *time.Time                        `json:"first_response_due_at"`
+	ResolutionDueAt    *time.Time                        `json:"resolution_due_at"`
+}
+
 type SendMessageRequest struct {
 	Channel          domain.Channel
 	Recipient        string
