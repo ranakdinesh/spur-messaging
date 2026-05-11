@@ -75,6 +75,17 @@ func NewMessageService(
 }
 
 func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports.SendMessageRequest) (*domain.Message, error) {
+	req.IdempotencyKey = strings.TrimSpace(req.IdempotencyKey)
+	if req.IdempotencyKey != "" {
+		existing, err := s.repo.GetByIdempotencyKey(ctx, tenantID, req.IdempotencyKey)
+		if err == nil {
+			return existing, nil
+		}
+		if !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+	}
+
 	// 1. Resolve provider config (Section 10A.2)
 	_, tenantConfig, err := s.providerRegistry.GetProvider(ctx, tenantID, req.Channel)
 	if err != nil {
@@ -119,6 +130,9 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 				CreatedAt:   time.Now(),
 				Metadata:    req.Metadata,
 			}
+			if req.IdempotencyKey != "" {
+				msg.IdempotencyKey = &req.IdempotencyKey
+			}
 			if msg.Metadata == nil {
 				msg.Metadata = make(map[string]string)
 			}
@@ -150,6 +164,9 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 					ErrorCode:   new("UNSUBSCRIBED"),
 					CreatedAt:   time.Now(),
 					Metadata:    req.Metadata,
+				}
+				if req.IdempotencyKey != "" {
+					msg.IdempotencyKey = &req.IdempotencyKey
 				}
 				if msg.Metadata == nil {
 					msg.Metadata = make(map[string]string)
@@ -318,6 +335,9 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 		CreatedAt:      time.Now(),
 		Metadata:       req.Metadata,
 	}
+	if req.IdempotencyKey != "" {
+		msg.IdempotencyKey = &req.IdempotencyKey
+	}
 
 	if req.Channel == domain.ChannelEmail {
 		if msg.Metadata == nil {
@@ -391,6 +411,13 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 
 	err = s.repo.Create(ctx, msg)
 	if err != nil {
+		if req.IdempotencyKey != "" && errors.Is(err, domain.ErrAlreadyExists) {
+			existing, getErr := s.repo.GetByIdempotencyKey(ctx, tenantID, req.IdempotencyKey)
+			if getErr == nil {
+				return existing, nil
+			}
+			return nil, getErr
+		}
 		return nil, err
 	}
 

@@ -11,6 +11,7 @@ import (
 type MessageRepository interface {
 	Create(ctx context.Context, msg *domain.Message) error
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Message, error)
+	GetByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, key string) (*domain.Message, error)
 	List(ctx context.Context, tenantID uuid.UUID, filter MessageFilter) ([]domain.Message, int, error)
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status domain.MessageStatus, providerMsgID string) error
 	UpdateStatusByProviderID(ctx context.Context, providerMsgID string, status domain.MessageStatus, timestamp time.Time) error

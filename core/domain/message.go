@@ -41,8 +41,9 @@ type Message struct {
 	TemplateParams    map[string]string
 	TextBody          *string
 	MediaURL          *string
-	MediaType          *string // image, video, document, audio
+	MediaType         *string // image, video, document, audio
 	ProviderMessageID string  // Meta's wamid, Twilio SID, etc.
+	IdempotencyKey    *string
 	Status            MessageStatus
 	ErrorCode         *string
 	ErrorMessage      *string

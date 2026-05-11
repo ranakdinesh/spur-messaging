@@ -50,11 +50,11 @@ const createMessage = `-- name: CreateMessage :one
 INSERT INTO messaging.messages (
     tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender,
     message_type, template_id, template_name, template_params, text_body,
-    media_url, media_type, provider_message_id, status, error_code, error_message,
+    media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message,
     cost, sent_at, delivered_at, read_at, failed_at, metadata
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
-) RETURNING id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+) RETURNING id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata
 `
 
 type CreateMessageParams struct {
@@ -73,6 +73,7 @@ type CreateMessageParams struct {
 	MediaUrl          pgtype.Text        `json:"media_url"`
 	MediaType         pgtype.Text        `json:"media_type"`
 	ProviderMessageID pgtype.Text        `json:"provider_message_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 	Status            string             `json:"status"`
 	ErrorCode         pgtype.Text        `json:"error_code"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
@@ -102,6 +103,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		arg.MediaUrl,
 		arg.MediaType,
 		arg.ProviderMessageID,
+		arg.IdempotencyKey,
 		arg.Status,
 		arg.ErrorCode,
 		arg.ErrorMessage,
@@ -130,6 +132,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.MediaUrl,
 		&i.MediaType,
 		&i.ProviderMessageID,
+		&i.IdempotencyKey,
 		&i.Status,
 		&i.ErrorCode,
 		&i.ErrorMessage,
@@ -145,7 +148,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 }
 
 const getMessageByID = `-- name: GetMessageByID :one
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -174,6 +177,52 @@ func (q *Queries) GetMessageByID(ctx context.Context, arg GetMessageByIDParams) 
 		&i.MediaUrl,
 		&i.MediaType,
 		&i.ProviderMessageID,
+		&i.IdempotencyKey,
+		&i.Status,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.Cost,
+		&i.SentAt,
+		&i.DeliveredAt,
+		&i.ReadAt,
+		&i.FailedAt,
+		&i.CreatedAt,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const getMessageByIdempotencyKey = `-- name: GetMessageByIdempotencyKey :one
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+WHERE tenant_id = $1 AND idempotency_key = $2
+`
+
+type GetMessageByIdempotencyKeyParams struct {
+	TenantID       uuid.UUID   `json:"tenant_id"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+}
+
+func (q *Queries) GetMessageByIdempotencyKey(ctx context.Context, arg GetMessageByIdempotencyKeyParams) (MessagingMessage, error) {
+	row := q.db.QueryRow(ctx, getMessageByIdempotencyKey, arg.TenantID, arg.IdempotencyKey)
+	var i MessagingMessage
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.ConversationID,
+		&i.Channel,
+		&i.Direction,
+		&i.Recipient,
+		&i.Sender,
+		&i.MessageType,
+		&i.TemplateID,
+		&i.TemplateName,
+		&i.TemplateParams,
+		&i.TextBody,
+		&i.MediaUrl,
+		&i.MediaType,
+		&i.ProviderMessageID,
+		&i.IdempotencyKey,
 		&i.Status,
 		&i.ErrorCode,
 		&i.ErrorMessage,
@@ -189,7 +238,7 @@ func (q *Queries) GetMessageByID(ctx context.Context, arg GetMessageByIDParams) 
 }
 
 const getMessageByProviderID = `-- name: GetMessageByProviderID :one
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata FROM messaging.messages
 WHERE provider_message_id = $1
 `
 
@@ -213,6 +262,7 @@ func (q *Queries) GetMessageByProviderID(ctx context.Context, providerMessageID 
 		&i.MediaUrl,
 		&i.MediaType,
 		&i.ProviderMessageID,
+		&i.IdempotencyKey,
 		&i.Status,
 		&i.ErrorCode,
 		&i.ErrorMessage,
@@ -228,7 +278,7 @@ func (q *Queries) GetMessageByProviderID(ctx context.Context, providerMessageID 
 }
 
 const getMessagesByCampaignID = `-- name: GetMessagesByCampaignID :many
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
 FROM messaging.messages
 WHERE tenant_id = $1 AND campaign_id = $2
 ORDER BY created_at DESC
@@ -259,6 +309,7 @@ type GetMessagesByCampaignIDRow struct {
 	MediaUrl          pgtype.Text        `json:"media_url"`
 	MediaType         pgtype.Text        `json:"media_type"`
 	ProviderMessageID pgtype.Text        `json:"provider_message_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 	Status            string             `json:"status"`
 	ErrorCode         pgtype.Text        `json:"error_code"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
@@ -303,6 +354,7 @@ func (q *Queries) GetMessagesByCampaignID(ctx context.Context, arg GetMessagesBy
 			&i.MediaUrl,
 			&i.MediaType,
 			&i.ProviderMessageID,
+			&i.IdempotencyKey,
 			&i.Status,
 			&i.ErrorCode,
 			&i.ErrorMessage,
@@ -326,7 +378,7 @@ func (q *Queries) GetMessagesByCampaignID(ctx context.Context, arg GetMessagesBy
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
+SELECT id, tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender, message_type, template_id, template_name, template_params, text_body, media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message, cost, sent_at, delivered_at, read_at, failed_at, created_at, metadata, count(*) OVER() as total_count
 FROM messaging.messages
 WHERE tenant_id = $1
 AND ($2::text IS NULL OR channel = $2)
@@ -368,6 +420,7 @@ type ListMessagesRow struct {
 	MediaUrl          pgtype.Text        `json:"media_url"`
 	MediaType         pgtype.Text        `json:"media_type"`
 	ProviderMessageID pgtype.Text        `json:"provider_message_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 	Status            string             `json:"status"`
 	ErrorCode         pgtype.Text        `json:"error_code"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
@@ -417,6 +470,7 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]L
 			&i.MediaUrl,
 			&i.MediaType,
 			&i.ProviderMessageID,
+			&i.IdempotencyKey,
 			&i.Status,
 			&i.ErrorCode,
 			&i.ErrorMessage,

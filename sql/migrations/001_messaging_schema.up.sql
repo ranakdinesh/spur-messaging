@@ -79,6 +79,7 @@ CREATE TABLE messaging.messages (
     media_url           TEXT,
     media_type          TEXT,
     provider_message_id TEXT,
+    idempotency_key     TEXT,
     status              TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'delivered', 'read', 'failed')),
     error_code          TEXT,
     error_message       TEXT,
@@ -96,6 +97,7 @@ CREATE INDEX idx_messages_tenant_recipient ON messaging.messages (tenant_id, rec
 CREATE INDEX idx_messages_tenant_campaign ON messaging.messages (tenant_id, campaign_id) WHERE campaign_id IS NOT NULL;
 CREATE INDEX idx_messages_provider_id ON messaging.messages (provider_message_id) WHERE provider_message_id IS NOT NULL;
 CREATE INDEX idx_messages_tenant_created ON messaging.messages (tenant_id, created_at DESC);
+CREATE UNIQUE INDEX idx_messages_tenant_idempotency ON messaging.messages (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 -- Segments
 CREATE TABLE messaging.segments (

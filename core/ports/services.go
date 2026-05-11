@@ -27,6 +27,7 @@ type SendMessageRequest struct {
 	Text             *string
 	MediaURL         *string
 	MediaType        *string
+	IdempotencyKey   string
 	Metadata         map[string]string
 
 	// Per-request overrides (Tier 1) — all optional

@@ -62,6 +62,7 @@ type Querier interface {
 	GetEmailTemplateByID(ctx context.Context, arg GetEmailTemplateByIDParams) (MessagingEmailTemplate, error)
 	GetEmailTemplateByName(ctx context.Context, arg GetEmailTemplateByNameParams) (MessagingEmailTemplate, error)
 	GetMessageByID(ctx context.Context, arg GetMessageByIDParams) (MessagingMessage, error)
+	GetMessageByIdempotencyKey(ctx context.Context, arg GetMessageByIdempotencyKeyParams) (MessagingMessage, error)
 	GetMessageByProviderID(ctx context.Context, providerMessageID pgtype.Text) (MessagingMessage, error)
 	// sql/queries/analytics.sql
 	GetMessageStats(ctx context.Context, arg GetMessageStatsParams) (GetMessageStatsRow, error)

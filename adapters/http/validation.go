@@ -12,6 +12,7 @@ var (
 	phoneRegex        = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 	emailRegex        = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	templateNameRegex = regexp.MustCompile(`^[a-z0-9_]+$`)
+	idempotencyRegex  = regexp.MustCompile(`^[A-Za-z0-9._:-]+$`)
 )
 
 func validatePhone(phone string) (string, error) {
@@ -66,6 +67,19 @@ func validateChannel(channel domain.Channel) error {
 	default:
 		return domain.NewValidationError("channel", "channel must be whatsapp, sms, or email")
 	}
+}
+
+func validateIdempotencyKey(key string) error {
+	if key == "" {
+		return nil
+	}
+	if len(key) < 8 || len(key) > 128 {
+		return domain.NewValidationError("idempotency_key", "idempotency key must be between 8 and 128 characters")
+	}
+	if !idempotencyRegex.MatchString(key) {
+		return domain.NewValidationError("idempotency_key", "idempotency key may contain letters, numbers, dots, underscores, colons, and hyphens")
+	}
+	return nil
 }
 
 func validateTemplateName(name string) error {

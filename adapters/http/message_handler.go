@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		FromName    string   `json:"from_name"`
 		ReplyTo     string   `json:"reply_to"`
 		SenderID    string   `json:"sender_id"`
+		Idempotency string   `json:"idempotency_key"`
 		CC          []string `json:"cc"`
 		BCC         []string `json:"bcc"`
 	}
@@ -52,6 +54,21 @@ func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	req.SenderID = body.SenderID
 	req.CC = body.CC
 	req.BCC = body.BCC
+
+	headerKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	bodyKey := strings.TrimSpace(body.Idempotency)
+	if headerKey != "" && bodyKey != "" && headerKey != bodyKey {
+		RespondError(w, domain.NewValidationError("idempotency_key", "Idempotency-Key header and idempotency_key body field must match"))
+		return
+	}
+	req.IdempotencyKey = headerKey
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = bodyKey
+	}
+	if err := validateIdempotencyKey(req.IdempotencyKey); err != nil {
+		RespondError(w, err)
+		return
+	}
 
 	if err := validateChannel(req.Channel); err != nil {
 		RespondError(w, err)

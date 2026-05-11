@@ -4,15 +4,19 @@
 INSERT INTO messaging.messages (
     tenant_id, campaign_id, conversation_id, channel, direction, recipient, sender,
     message_type, template_id, template_name, template_params, text_body,
-    media_url, media_type, provider_message_id, status, error_code, error_message,
+    media_url, media_type, provider_message_id, idempotency_key, status, error_code, error_message,
     cost, sent_at, delivered_at, read_at, failed_at, metadata
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
 ) RETURNING *;
 
 -- name: GetMessageByID :one
 SELECT * FROM messaging.messages
 WHERE tenant_id = $1 AND id = $2;
+
+-- name: GetMessageByIdempotencyKey :one
+SELECT * FROM messaging.messages
+WHERE tenant_id = $1 AND idempotency_key = $2;
 
 -- name: ListMessages :many
 SELECT *, count(*) OVER() as total_count

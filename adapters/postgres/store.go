@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ranakdinesh/spur-messaging/adapters/postgres/gen"
@@ -31,6 +32,9 @@ func (s *Store) Create(ctx context.Context, msg *domain.Message) error {
 	params := toMessageCreateSQLC(msg)
 	m, err := s.q.CreateMessage(ctx, params)
 	if err != nil {
+		if isIdempotencyConflict(err) {
+			return domain.ErrAlreadyExists
+		}
 		return err
 	}
 	*msg = toMessageDomain(m)
@@ -39,6 +43,21 @@ func (s *Store) Create(ctx context.Context, msg *domain.Message) error {
 
 func (s *Store) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Message, error) {
 	m, err := s.q.GetMessageByID(ctx, gen.GetMessageByIDParams{TenantID: tenantID, ID: id})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	res := toMessageDomain(m)
+	return &res, nil
+}
+
+func (s *Store) GetByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, key string) (*domain.Message, error) {
+	m, err := s.q.GetMessageByIdempotencyKey(ctx, gen.GetMessageByIdempotencyKeyParams{
+		TenantID:       tenantID,
+		IdempotencyKey: fromString(key),
+	})
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, domain.ErrNotFound
@@ -85,6 +104,7 @@ func (s *Store) List(ctx context.Context, tenantID uuid.UUID, filter ports.Messa
 			MediaUrl:          r.MediaUrl,
 			MediaType:         r.MediaType,
 			ProviderMessageID: r.ProviderMessageID,
+			IdempotencyKey:    r.IdempotencyKey,
 			Status:            r.Status,
 			ErrorCode:         r.ErrorCode,
 			ErrorMessage:      r.ErrorMessage,
@@ -160,6 +180,7 @@ func (s *Store) GetByCampaignID(ctx context.Context, tenantID, campaignID uuid.U
 			MediaUrl:          r.MediaUrl,
 			MediaType:         r.MediaType,
 			ProviderMessageID: r.ProviderMessageID,
+			IdempotencyKey:    r.IdempotencyKey,
 			Status:            r.Status,
 			ErrorCode:         r.ErrorCode,
 			ErrorMessage:      r.ErrorMessage,
@@ -186,6 +207,11 @@ func (s *Store) ExistsForCampaign(ctx context.Context, campaignID uuid.UUID, rec
 func (s *Store) CountByCampaign(ctx context.Context, campaignID uuid.UUID) (int, error) {
 	count, err := s.q.CountMessagesByCampaign(ctx, fromUUID(campaignID))
 	return int(count), err
+}
+
+func isIdempotencyConflict(err error) bool {
+	pgErr, ok := err.(*pgconn.PgError)
+	return ok && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_messages_tenant_idempotency"
 }
 
 // TemplateRepository

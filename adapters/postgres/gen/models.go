@@ -99,6 +99,7 @@ type MessagingMessage struct {
 	MediaUrl          pgtype.Text        `json:"media_url"`
 	MediaType         pgtype.Text        `json:"media_type"`
 	ProviderMessageID pgtype.Text        `json:"provider_message_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 	Status            string             `json:"status"`
 	ErrorCode         pgtype.Text        `json:"error_code"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
