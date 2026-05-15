@@ -2,7 +2,10 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,7 +15,9 @@ import (
 	"github.com/ranakdinesh/spur-messaging/adapters/providers/email"
 	"github.com/ranakdinesh/spur-messaging/adapters/providers/sms"
 	"github.com/ranakdinesh/spur-messaging/adapters/providers/whatsapp"
+	whatsappmeta "github.com/ranakdinesh/spur-messaging/adapters/providers/whatsapp/meta"
 	"github.com/ranakdinesh/spur-messaging/adapters/queue"
+	"github.com/ranakdinesh/spur-messaging/core/domain"
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/core/services"
 	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
@@ -23,6 +28,8 @@ import (
 
 // Config holds messaging-specific configuration.
 type Config struct {
+	AppEnv string
+
 	EncryptionKey    []byte // AES-256-GCM key for encrypting provider credentials
 	WebhookBaseURL   string // e.g. "https://api.example.com/messaging/webhook"
 	DefaultRateLimit int    // messages per second per tenant (default: 10)
@@ -42,8 +49,11 @@ type Config struct {
 	SMSSenderID string
 
 	// WhatsApp platform-level config
-	WhatsAppWebhookVerifyToken string
-	WhatsAppMetaAppID          string
+	WhatsAppWebhookVerifyToken     string
+	WhatsAppMetaAppID              string
+	WhatsAppMetaAppSecret          string
+	WhatsAppGraphAPIVersion        string
+	WhatsAppEmbeddedSignupConfigID string
 }
 
 // Logger interface for platform logging
@@ -86,6 +96,7 @@ type Options struct {
 // Services exposes service interfaces for cross-module use
 type Services struct {
 	MessageService        ports.MessageService
+	MessagingGateway      ports.MessagingGateway
 	TemplateService       ports.TemplateService
 	CampaignService       ports.CampaignService
 	ContactService        ports.ContactService
@@ -97,6 +108,7 @@ type Services struct {
 	ConversationService   ports.ConversationService
 	TenantWebhookService  ports.TenantWebhookService
 	BillingService        ports.BillingService
+	WhatsAppOnboarding    ports.WhatsAppOnboardingService
 }
 
 // Module is the messaging module instance
@@ -117,6 +129,7 @@ type Module struct {
 		unsubscribe   *http.UnsubscribeHandler
 		suppression   *http.SuppressionHandler
 		analytics     *http.AnalyticsHandler
+		waOnboarding  *http.WhatsAppOnboardingHandler
 	}
 	rateLimiter *http.RateLimiter
 }
@@ -154,8 +167,20 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	providerRegistry.RegisterWithName("sendgrid", email.NewSendGridProvider())
 	providerRegistry.RegisterWithName("mailgun", email.NewMailgunProvider())
 	providerRegistry.RegisterWithName("postmark", email.NewPostmarkProvider())
+	providerRegistry.RegisterWithName("smtp", email.NewSMTPProvider())
+	providerRegistry.RegisterWithName("dev_email", email.NewDevEmailProvider())
 	providerRegistry.RegisterWithName("msg91", sms.NewMSG91Provider())
 	providerRegistry.RegisterWithName("twilio", sms.NewTwilioProvider())
+	emailProvider := resolveEmailProvider(opt.Cfg, log)
+	providerRegistry.SetDefaultProvider("email", emailProvider)
+	providerRegistry.SetDefaultProvider("sms", opt.Cfg.SMSProvider)
+	providerRegistry.SetDefaultProvider("whatsapp", "meta_cloud")
+	if cfg := defaultEmailProviderConfig(opt.Cfg); cfg != nil {
+		providerRegistry.SetDefaultConfig(domain.ChannelEmail, cfg)
+	}
+	if cfg := defaultSMSProviderConfig(opt.Cfg); cfg != nil {
+		providerRegistry.SetDefaultConfig(domain.ChannelSMS, cfg)
+	}
 
 	// 6. Create service implementations
 	suppressionSvc := services.NewSuppressionService(suppressionRepo)
@@ -166,7 +191,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 		WebhookBaseURL:             opt.Cfg.WebhookBaseURL,
 		DefaultRateLimit:           opt.Cfg.DefaultRateLimit,
 		WorkerCount:                opt.Cfg.WorkerCount,
-		EmailProvider:              opt.Cfg.EmailProvider,
+		EmailProvider:              emailProvider,
 		EmailAPIKey:                opt.Cfg.EmailAPIKey,
 		EmailFromAddress:           opt.Cfg.EmailFromAddress,
 		EmailFromName:              opt.Cfg.EmailFromName,
@@ -178,6 +203,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 		WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
 		WhatsAppMetaAppID:          opt.Cfg.WhatsAppMetaAppID,
 	})
+	messagingGateway := services.NewMessagingGateway(messageSvc)
 	templateSvc := services.NewTemplateService(tmplRepo, campaignRepo, providerRegistry)
 	campaignSvc := services.NewCampaignService(campaignRepo, tmplRepo, segmentRepo, msgQueue, suppressionSvc, unsubscribeSvc, contactRepo)
 	emailTemplateSvc := services.NewEmailTemplateService(emailTemplateRepo)
@@ -187,11 +213,23 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	tenantWebhookSvc := services.NewTenantWebhookService(store, nil, log)
 	billingSvc := services.NewBillingService(store)
 	webhookSvc := services.NewWebhookService(msgRepo, store, contactSvc, emailEventRepo, suppressionSvc, unsubscribeSvc, providerRegistry, providerConfigRepo, tenantWebhookSvc, log)
+	graphVersion := opt.Cfg.WhatsAppGraphAPIVersion
+	if graphVersion == "" {
+		graphVersion = "v23.0"
+	}
+	whatsAppMetaClient := whatsappmeta.NewClient(whatsappmeta.WithAPIVersion(graphVersion))
+	whatsAppOnboardingSvc := services.NewWhatsAppOnboardingService(
+		store,
+		providerConfigRepo,
+		whatsAppMetaOnboardingClient{client: whatsAppMetaClient, appID: opt.Cfg.WhatsAppMetaAppID, appSecret: opt.Cfg.WhatsAppMetaAppSecret},
+		credentialCodec{key: opt.Cfg.EncryptionKey},
+	)
 
 	// 7. Create handlers
 	m := &Module{
 		Services: &Services{
 			MessageService:        messageSvc,
+			MessagingGateway:      messagingGateway,
 			TemplateService:       templateSvc,
 			CampaignService:       campaignSvc,
 			ContactService:        contactSvc,
@@ -203,6 +241,7 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 			ConversationService:   conversationSvc,
 			TenantWebhookService:  tenantWebhookSvc,
 			BillingService:        billingSvc,
+			WhatsAppOnboarding:    whatsAppOnboardingSvc,
 		},
 		WebhookHandler: http.NewWebhookHandler(webhookSvc, http.WebhookConfig{
 			WhatsAppWebhookVerifyToken: opt.Cfg.WhatsAppWebhookVerifyToken,
@@ -222,6 +261,12 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	m.handlers.unsubscribe = http.NewUnsubscribeHandler(unsubscribeSvc)
 	m.handlers.suppression = http.NewSuppressionHandler(suppressionSvc)
 	m.handlers.analytics = http.NewAnalyticsHandler(messageSvc, emailAnalyticsSvc, campaignSvc)
+	m.handlers.waOnboarding = http.NewWhatsAppOnboardingHandler(whatsAppOnboardingSvc, http.WhatsAppOnboardingConfig{
+		MetaAppID:       opt.Cfg.WhatsAppMetaAppID,
+		ConfigID:        opt.Cfg.WhatsAppEmbeddedSignupConfigID,
+		CallbackURL:     strings.TrimRight(opt.Cfg.WebhookBaseURL, "/") + "/messaging/whatsapp/onboarding/callback",
+		GraphAPIVersion: graphVersion,
+	})
 
 	rateLimit := opt.Cfg.DefaultRateLimit
 	if rateLimit <= 0 {
@@ -261,6 +306,86 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	return m, nil
 }
 
+func defaultEmailProviderConfig(cfg Config) *domain.ProviderConfig {
+	emailProvider := resolveEmailProvider(cfg, nil)
+	if emailProvider == "" {
+		return nil
+	}
+	creds := domain.EmailCredentials{APIKey: cfg.EmailAPIKey}
+	if emailProvider == domain.ProviderPostmark {
+		creds.ServerToken = cfg.EmailAPIKey
+	}
+	raw, _ := json.Marshal(creds)
+	return &domain.ProviderConfig{
+		Channel:     domain.ChannelEmail,
+		Provider:    emailProvider,
+		Credentials: raw,
+		IsActive:    true,
+		FromEmail:   cfg.EmailFromAddress,
+		FromName:    cfg.EmailFromName,
+		TrackOpens:  &cfg.EmailTrackOpens,
+		TrackClicks: &cfg.EmailTrackClicks,
+	}
+}
+
+func resolveEmailProvider(cfg Config, log Logger) string {
+	provider := strings.TrimSpace(cfg.EmailProvider)
+	if provider == "" {
+		provider = domain.ProviderSendGrid
+	}
+	if provider == domain.ProviderDevEmail || emailProviderConfigured(provider, cfg) {
+		return provider
+	}
+	env := strings.ToLower(strings.TrimSpace(cfg.AppEnv))
+	if env == "" {
+		env = strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+	}
+	if env == "" || env == "development" || env == "dev" || env == "local" || env == "test" {
+		if log != nil {
+			log.Warn("Email provider credentials missing; using development email outbox", "provider", provider)
+		}
+		return domain.ProviderDevEmail
+	}
+	return provider
+}
+
+func emailProviderConfigured(provider string, cfg Config) bool {
+	switch provider {
+	case domain.ProviderSendGrid, domain.ProviderPostmark:
+		return strings.TrimSpace(cfg.EmailAPIKey) != ""
+	case domain.ProviderMailgun:
+		return strings.TrimSpace(cfg.EmailAPIKey) != "" && strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")) != ""
+	case domain.ProviderSMTP:
+		return strings.TrimSpace(os.Getenv("MESSAGING_SMTP_HOST")) != ""
+	default:
+		return true
+	}
+}
+
+func defaultSMSProviderConfig(cfg Config) *domain.ProviderConfig {
+	if cfg.SMSProvider == "" && cfg.SMSAPIKey == "" {
+		return nil
+	}
+	creds := domain.SMSCredentials{}
+	switch cfg.SMSProvider {
+	case domain.ProviderTwilio:
+		creds.AccountSID = cfg.SMSAPIKey
+	case domain.ProviderMSG91:
+		creds.AuthKey = cfg.SMSAPIKey
+		creds.SenderID = cfg.SMSSenderID
+	default:
+		return nil
+	}
+	raw, _ := json.Marshal(creds)
+	return &domain.ProviderConfig{
+		Channel:     domain.ChannelSMS,
+		Provider:    cfg.SMSProvider,
+		Credentials: raw,
+		IsActive:    true,
+		SMSSenderID: cfg.SMSSenderID,
+	}
+}
+
 // RegisterRoutes mounts AUTHENTICATED messaging routes on the chi router.
 func (m *Module) RegisterRoutes(r chi.Router) {
 	// Identity middleware authenticates the token before this bridge copies
@@ -281,6 +406,7 @@ func (m *Module) RegisterRoutes(r chi.Router) {
 		m.handlers.billing,
 		m.handlers.segment,
 		m.handlers.provider,
+		m.handlers.waOnboarding,
 		m.handlers.unsubscribe,
 		m.handlers.suppression,
 		m.handlers.analytics,

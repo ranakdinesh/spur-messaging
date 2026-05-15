@@ -189,6 +189,35 @@ func (q *Queries) GetProviderConfigByWABAID(ctx context.Context, wabaID pgtype.T
 	return i, err
 }
 
+const getProviderConfigByPhoneNumberID = `-- name: GetProviderConfigByPhoneNumberID :one
+SELECT id, tenant_id, channel, provider, credentials, webhook_secret, is_active, phone_number_id, waba_id, business_id, display_phone, from_email, from_name, reply_to_email, created_at, updated_at FROM messaging.provider_configs
+WHERE phone_number_id = $1
+`
+
+func (q *Queries) GetProviderConfigByPhoneNumberID(ctx context.Context, phoneNumberID pgtype.Text) (MessagingProviderConfig, error) {
+	row := q.db.QueryRow(ctx, getProviderConfigByPhoneNumberID, phoneNumberID)
+	var i MessagingProviderConfig
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Channel,
+		&i.Provider,
+		&i.Credentials,
+		&i.WebhookSecret,
+		&i.IsActive,
+		&i.PhoneNumberID,
+		&i.WabaID,
+		&i.BusinessID,
+		&i.DisplayPhone,
+		&i.FromEmail,
+		&i.FromName,
+		&i.ReplyToEmail,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listProviderConfigs = `-- name: ListProviderConfigs :many
 SELECT id, tenant_id, channel, provider, credentials, webhook_secret, is_active, phone_number_id, waba_id, business_id, display_phone, from_email, from_name, reply_to_email, created_at, updated_at FROM messaging.provider_configs
 WHERE tenant_id = $1

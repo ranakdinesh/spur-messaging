@@ -46,14 +46,21 @@ const (
 )
 
 type WebhookEvent struct {
-	Type              WebhookEventType
-	ProviderMessageID string
-	Status            *domain.MessageStatus // for status updates
-	Timestamp         time.Time
-	From              *string // for incoming messages
-	Text              *string
-	MediaURL          *string
-	WABAID            string // to route to correct tenant
+	Type               WebhookEventType
+	ProviderMessageID  string
+	Status             *domain.MessageStatus // for status updates
+	Timestamp          time.Time
+	From               *string // for incoming messages
+	Recipient          *string
+	Text               *string
+	MediaURL           *string
+	WABAID             string // to route to correct tenant
+	PhoneNumberID      string
+	DisplayPhoneNumber string
+	MessageType        string
+	ErrorCode          string
+	ErrorMessage       string
+	Metadata           map[string]string
 
 	// Email-specific fields
 	EmailEventType  domain.EmailEventType

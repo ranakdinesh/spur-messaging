@@ -19,6 +19,7 @@ type Querier interface {
 	BulkCreateContacts(ctx context.Context, arg []BulkCreateContactsParams) (int64, error)
 	CheckMessageExistsForCampaign(ctx context.Context, arg CheckMessageExistsForCampaignParams) (bool, error)
 	ClearSegmentContacts(ctx context.Context, segmentID uuid.UUID) error
+	CompleteWhatsAppOnboardingSession(ctx context.Context, arg CompleteWhatsAppOnboardingSessionParams) (MessagingWhatsappOnboardingSession, error)
 	CountMessagesByCampaign(ctx context.Context, campaignID pgtype.UUID) (int64, error)
 	// sql/queries/campaigns.sql
 	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (MessagingCampaign, error)
@@ -49,6 +50,10 @@ type Querier interface {
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (MessagingWebhookDelivery, error)
 	// sql/queries/webhooks.sql
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
+	// sql/queries/whatsapp_accounts.sql
+	CreateWhatsAppBusinessAccount(ctx context.Context, arg CreateWhatsAppBusinessAccountParams) (MessagingWhatsappBusinessAccount, error)
+	CreateWhatsAppOnboardingSession(ctx context.Context, arg CreateWhatsAppOnboardingSessionParams) (MessagingWhatsappOnboardingSession, error)
+	CreateWhatsAppPhoneNumber(ctx context.Context, arg CreateWhatsAppPhoneNumberParams) (MessagingWhatsappPhoneNumber, error)
 	DeleteCampaign(ctx context.Context, arg DeleteCampaignParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteEmailTemplate(ctx context.Context, arg DeleteEmailTemplateParams) error
@@ -58,7 +63,10 @@ type Querier interface {
 	DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) error
 	DeleteUnsubscribe(ctx context.Context, arg DeleteUnsubscribeParams) error
 	DeleteWebhookEndpoint(ctx context.Context, arg DeleteWebhookEndpointParams) error
+	DeleteWhatsAppBusinessAccount(ctx context.Context, arg DeleteWhatsAppBusinessAccountParams) error
+	DeleteWhatsAppPhoneNumber(ctx context.Context, arg DeleteWhatsAppPhoneNumberParams) error
 	ExistsByProviderEventID(ctx context.Context, providerEventID pgtype.Text) (bool, error)
+	FailWhatsAppOnboardingSession(ctx context.Context, arg FailWhatsAppOnboardingSessionParams) (MessagingWhatsappOnboardingSession, error)
 	GetActiveConversationByRecipient(ctx context.Context, arg GetActiveConversationByRecipientParams) (MessagingConversation, error)
 	GetActiveRateCard(ctx context.Context, arg GetActiveRateCardParams) (MessagingRateCard, error)
 	GetCampaignByID(ctx context.Context, arg GetCampaignByIDParams) (MessagingCampaign, error)
@@ -83,6 +91,7 @@ type Querier interface {
 	GetMessagesByCampaignID(ctx context.Context, arg GetMessagesByCampaignIDParams) ([]GetMessagesByCampaignIDRow, error)
 	GetProviderConfigByChannel(ctx context.Context, arg GetProviderConfigByChannelParams) (MessagingProviderConfig, error)
 	GetProviderConfigByID(ctx context.Context, arg GetProviderConfigByIDParams) (MessagingProviderConfig, error)
+	GetProviderConfigByPhoneNumberID(ctx context.Context, phoneNumberID pgtype.Text) (MessagingProviderConfig, error)
 	GetProviderConfigByWABAID(ctx context.Context, wabaID pgtype.Text) (MessagingProviderConfig, error)
 	GetRunningCampaigns(ctx context.Context) ([]MessagingCampaign, error)
 	GetScheduledCampaigns(ctx context.Context, scheduledAt pgtype.Timestamptz) ([]MessagingCampaign, error)
@@ -93,6 +102,12 @@ type Querier interface {
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (GetWalletBalanceRow, error)
 	GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (MessagingWebhookDelivery, error)
 	GetWebhookEndpoint(ctx context.Context, arg GetWebhookEndpointParams) (MessagingWebhookEndpoint, error)
+	GetWhatsAppBusinessAccount(ctx context.Context, arg GetWhatsAppBusinessAccountParams) (MessagingWhatsappBusinessAccount, error)
+	GetWhatsAppBusinessAccountByWABAID(ctx context.Context, arg GetWhatsAppBusinessAccountByWABAIDParams) (MessagingWhatsappBusinessAccount, error)
+	GetWhatsAppOnboardingSession(ctx context.Context, arg GetWhatsAppOnboardingSessionParams) (MessagingWhatsappOnboardingSession, error)
+	GetWhatsAppOnboardingSessionByState(ctx context.Context, arg GetWhatsAppOnboardingSessionByStateParams) (MessagingWhatsappOnboardingSession, error)
+	GetWhatsAppPhoneNumber(ctx context.Context, arg GetWhatsAppPhoneNumberParams) (MessagingWhatsappPhoneNumber, error)
+	GetWhatsAppPhoneNumberByPhoneNumberID(ctx context.Context, arg GetWhatsAppPhoneNumberByPhoneNumberIDParams) (MessagingWhatsappPhoneNumber, error)
 	IsSuppressed(ctx context.Context, arg IsSuppressedParams) (bool, error)
 	IsUnsubscribed(ctx context.Context, arg IsUnsubscribedParams) (bool, error)
 	ListCampaigns(ctx context.Context, arg ListCampaignsParams) ([]ListCampaignsRow, error)
@@ -110,6 +125,9 @@ type Querier interface {
 	ListWalletLedgerEntries(ctx context.Context, arg ListWalletLedgerEntriesParams) ([]ListWalletLedgerEntriesRow, error)
 	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]ListWebhookDeliveriesRow, error)
 	ListWebhookEndpoints(ctx context.Context, arg ListWebhookEndpointsParams) ([]ListWebhookEndpointsRow, error)
+	ListWhatsAppBusinessAccounts(ctx context.Context, arg ListWhatsAppBusinessAccountsParams) ([]ListWhatsAppBusinessAccountsRow, error)
+	ListWhatsAppPhoneNumbers(ctx context.Context, arg ListWhatsAppPhoneNumbersParams) ([]ListWhatsAppPhoneNumbersRow, error)
+	ListWhatsAppPhoneNumbersByWABA(ctx context.Context, arg ListWhatsAppPhoneNumbersByWABAParams) ([]ListWhatsAppPhoneNumbersByWABARow, error)
 	RemoveContactFromSegment(ctx context.Context, arg RemoveContactFromSegmentParams) error
 	ResolveContacts(ctx context.Context, arg ResolveContactsParams) ([]ResolveContactsRow, error)
 	UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (MessagingCampaign, error)
@@ -128,6 +146,11 @@ type Querier interface {
 	UpdateTemplateStatus(ctx context.Context, arg UpdateTemplateStatusParams) error
 	UpdateWebhookDelivery(ctx context.Context, arg UpdateWebhookDeliveryParams) (MessagingWebhookDelivery, error)
 	UpdateWebhookEndpoint(ctx context.Context, arg UpdateWebhookEndpointParams) (MessagingWebhookEndpoint, error)
+	UpdateWhatsAppBusinessAccountStatus(ctx context.Context, arg UpdateWhatsAppBusinessAccountStatusParams) (MessagingWhatsappBusinessAccount, error)
+	UpdateWhatsAppBusinessAccountSync(ctx context.Context, arg UpdateWhatsAppBusinessAccountSyncParams) (MessagingWhatsappBusinessAccount, error)
+	UpdateWhatsAppOnboardingSessionStatus(ctx context.Context, arg UpdateWhatsAppOnboardingSessionStatusParams) (MessagingWhatsappOnboardingSession, error)
+	UpdateWhatsAppPhoneNumberStatus(ctx context.Context, arg UpdateWhatsAppPhoneNumberStatusParams) (MessagingWhatsappPhoneNumber, error)
+	UpdateWhatsAppPhoneNumberSync(ctx context.Context, arg UpdateWhatsAppPhoneNumberSyncParams) (MessagingWhatsappPhoneNumber, error)
 	UpsertConversationInbound(ctx context.Context, arg UpsertConversationInboundParams) (MessagingConversation, error)
 	UpsertConversationOutbound(ctx context.Context, arg UpsertConversationOutboundParams) (MessagingConversation, error)
 	WalletLedgerReferenceExists(ctx context.Context, arg WalletLedgerReferenceExistsParams) (bool, error)

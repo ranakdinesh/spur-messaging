@@ -1,5 +1,7 @@
 package whatsapp
 
+import "encoding/json"
+
 // Meta Webhook Payloads
 
 type WebhookPayload struct {
@@ -38,16 +40,64 @@ type WebhookStatus struct {
 }
 
 type WebhookMessage struct {
-	From      string       `json:"from"`
-	ID        string       `json:"id"`
-	Timestamp string       `json:"timestamp"`
-	Type      string       `json:"type"`
-	Text      *WebhookText `json:"text,omitempty"`
-	// Add other types as needed (image, video, etc.)
+	From        string              `json:"from"`
+	ID          string              `json:"id"`
+	Timestamp   string              `json:"timestamp"`
+	Type        string              `json:"type"`
+	Text        *WebhookText        `json:"text,omitempty"`
+	Image       *WebhookMedia       `json:"image,omitempty"`
+	Document    *WebhookDocument    `json:"document,omitempty"`
+	Audio       *WebhookMedia       `json:"audio,omitempty"`
+	Video       *WebhookMedia       `json:"video,omitempty"`
+	Button      *WebhookButton      `json:"button,omitempty"`
+	Interactive *WebhookInteractive `json:"interactive,omitempty"`
+	Location    *WebhookLocation    `json:"location,omitempty"`
+	Raw         json.RawMessage     `json:"-"`
 }
 
 type WebhookText struct {
 	Body string `json:"body"`
+}
+
+type WebhookMedia struct {
+	ID       string `json:"id"`
+	MimeType string `json:"mime_type,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
+	Caption  string `json:"caption,omitempty"`
+}
+
+type WebhookDocument struct {
+	ID       string `json:"id"`
+	MimeType string `json:"mime_type,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
+	Caption  string `json:"caption,omitempty"`
+	Filename string `json:"filename,omitempty"`
+}
+
+type WebhookButton struct {
+	Text    string `json:"text,omitempty"`
+	Payload string `json:"payload,omitempty"`
+}
+
+type WebhookInteractive struct {
+	Type        string                     `json:"type"`
+	ButtonReply *WebhookInteractiveReply   `json:"button_reply,omitempty"`
+	ListReply   *WebhookInteractiveReply   `json:"list_reply,omitempty"`
+	Raw         map[string]json.RawMessage `json:"-"`
+}
+
+type WebhookInteractiveReply struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+type WebhookLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Name      string  `json:"name,omitempty"`
+	Address   string  `json:"address,omitempty"`
+	URL       string  `json:"url,omitempty"`
 }
 
 type WebhookError struct {

@@ -855,6 +855,18 @@ func (s *Store) GetProviderConfigByWABAID(ctx context.Context, wabaID string) (*
 	return &res, nil
 }
 
+func (s *Store) GetProviderConfigByPhoneNumberID(ctx context.Context, phoneNumberID string) (*domain.ProviderConfig, error) {
+	p, err := s.q.GetProviderConfigByPhoneNumberID(ctx, fromString(phoneNumberID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	res := toProviderConfigDomain(p)
+	return &res, nil
+}
+
 func (s *Store) ListProviderConfigs(ctx context.Context, tenantID uuid.UUID) ([]domain.ProviderConfig, error) {
 	rows, err := s.q.ListProviderConfigs(ctx, tenantID)
 	if err != nil {

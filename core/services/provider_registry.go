@@ -11,14 +11,18 @@ import (
 )
 
 type ProviderRegistry struct {
-	configRepo ports.ProviderConfigRepository
-	Providers  map[domain.Channel]map[string]ports.Provider
+	configRepo       ports.ProviderConfigRepository
+	Providers        map[domain.Channel]map[string]ports.Provider
+	defaultProviders map[domain.Channel]string
+	defaultConfigs   map[domain.Channel]*domain.ProviderConfig
 }
 
 func NewProviderRegistry(configRepo ports.ProviderConfigRepository) *ProviderRegistry {
 	return &ProviderRegistry{
-		configRepo: configRepo,
-		Providers:  make(map[domain.Channel]map[string]ports.Provider),
+		configRepo:       configRepo,
+		Providers:        make(map[domain.Channel]map[string]ports.Provider),
+		defaultProviders: make(map[domain.Channel]string),
+		defaultConfigs:   make(map[domain.Channel]*domain.ProviderConfig),
 	}
 }
 
@@ -41,6 +45,20 @@ func (r *ProviderRegistry) RegisterWithName(name string, provider ports.Provider
 	r.Providers[channel][name] = provider
 }
 
+func (r *ProviderRegistry) SetDefaultProvider(channel domain.Channel, name string) {
+	if name == "" {
+		return
+	}
+	r.defaultProviders[channel] = name
+}
+
+func (r *ProviderRegistry) SetDefaultConfig(channel domain.Channel, cfg *domain.ProviderConfig) {
+	if cfg == nil {
+		return
+	}
+	r.defaultConfigs[channel] = cfg
+}
+
 func (r *ProviderRegistry) GetProvider(ctx context.Context, tenantID uuid.UUID, channel domain.Channel) (ports.Provider, *domain.ProviderConfig, error) {
 	// 1. Check tenant's provider_configs
 	cfg, err := r.configRepo.GetByChannel(ctx, tenantID, channel)
@@ -53,13 +71,22 @@ func (r *ProviderRegistry) GetProvider(ctx context.Context, tenantID uuid.UUID, 
 
 	// 2. Fallback to platform default from env
 	var defaultProviderName string
+	if r.defaultProviders != nil {
+		defaultProviderName = r.defaultProviders[channel]
+	}
 	switch channel {
 	case domain.ChannelEmail:
-		defaultProviderName = os.Getenv("MESSAGING_EMAIL_PROVIDER")
+		if defaultProviderName == "" {
+			defaultProviderName = os.Getenv("MESSAGING_EMAIL_PROVIDER")
+		}
 	case domain.ChannelSMS:
-		defaultProviderName = os.Getenv("MESSAGING_SMS_PROVIDER")
+		if defaultProviderName == "" {
+			defaultProviderName = os.Getenv("MESSAGING_SMS_PROVIDER")
+		}
 	case domain.ChannelWhatsApp:
-		defaultProviderName = "meta_cloud" // WhatsApp usually only has one in this setup
+		if defaultProviderName == "" {
+			defaultProviderName = "meta_cloud" // WhatsApp usually only has one in this setup
+		}
 	}
 
 	if defaultProviderName == "" {
@@ -81,6 +108,15 @@ func (r *ProviderRegistry) GetProvider(ctx context.Context, tenantID uuid.UUID, 
 		Channel:  channel,
 		Provider: defaultProviderName,
 		IsActive: true,
+	}
+	if r.defaultConfigs != nil && r.defaultConfigs[channel] != nil {
+		cfgCopy := *r.defaultConfigs[channel]
+		cfgCopy.ID = uuid.Nil
+		cfgCopy.TenantID = tenantID
+		cfgCopy.Channel = channel
+		cfgCopy.Provider = defaultProviderName
+		cfgCopy.IsActive = true
+		platformCfg = &cfgCopy
 	}
 
 	return p, platformCfg, nil

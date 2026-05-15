@@ -20,6 +20,10 @@ WHERE tenant_id = $1 AND channel = $2 AND is_active = true;
 SELECT * FROM messaging.provider_configs
 WHERE waba_id = $1;
 
+-- name: GetProviderConfigByPhoneNumberID :one
+SELECT * FROM messaging.provider_configs
+WHERE phone_number_id = $1;
+
 -- name: ListProviderConfigs :many
 SELECT * FROM messaging.provider_configs
 WHERE tenant_id = $1;

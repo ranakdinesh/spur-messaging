@@ -5,12 +5,84 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	credentialcrypto "github.com/ranakdinesh/spur-messaging/adapters/crypto"
 	"github.com/ranakdinesh/spur-messaging/adapters/postgres"
+	whatsappmeta "github.com/ranakdinesh/spur-messaging/adapters/providers/whatsapp/meta"
 	"github.com/ranakdinesh/spur-messaging/core/domain"
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 )
 
 // Bridge adapters to map postgres.Store specific methods to generic ports.Repository interfaces
+
+type credentialCodec struct {
+	key []byte
+}
+
+func (c credentialCodec) Encrypt(plaintext []byte) ([]byte, error) {
+	return credentialcrypto.Encrypt(plaintext, c.key)
+}
+
+func (c credentialCodec) Decrypt(ciphertext []byte) ([]byte, error) {
+	return credentialcrypto.Decrypt(ciphertext, c.key)
+}
+
+type whatsAppMetaOnboardingClient struct {
+	client    *whatsappmeta.Client
+	appID     string
+	appSecret string
+}
+
+func (c whatsAppMetaOnboardingClient) ExchangeCodeForToken(ctx context.Context, code string) (*ports.WhatsAppTokenExchange, error) {
+	token, err := c.client.ExchangeCodeForToken(ctx, c.appID, c.appSecret, code)
+	if err != nil {
+		return nil, err
+	}
+	var expiresAt *time.Time
+	if token.ExpiresIn > 0 {
+		value := time.Now().UTC().Add(time.Duration(token.ExpiresIn) * time.Second)
+		expiresAt = &value
+	}
+	return &ports.WhatsAppTokenExchange{
+		AccessToken: token.AccessToken,
+		TokenType:   token.TokenType,
+		ExpiresAt:   expiresAt,
+	}, nil
+}
+
+func (c whatsAppMetaOnboardingClient) GetWABA(ctx context.Context, accessToken, wabaID string) (*ports.WhatsAppBusinessAccountInfo, error) {
+	waba, err := c.client.GetWABA(ctx, accessToken, wabaID)
+	if err != nil {
+		return nil, err
+	}
+	return &ports.WhatsAppBusinessAccountInfo{
+		ID:                         waba.ID,
+		MetaBusinessID:             waba.ID,
+		Name:                       waba.Name,
+		Currency:                   waba.Currency,
+		TimezoneID:                 waba.TimezoneID,
+		BusinessVerificationStatus: domain.WhatsAppBusinessVerificationStatus(waba.BusinessVerificationStatus),
+	}, nil
+}
+
+func (c whatsAppMetaOnboardingClient) ListPhoneNumbers(ctx context.Context, accessToken, wabaID string) ([]ports.WhatsAppPhoneNumberInfo, error) {
+	resp, err := c.client.ListPhoneNumbers(ctx, accessToken, wabaID)
+	if err != nil {
+		return nil, err
+	}
+	phones := make([]ports.WhatsAppPhoneNumberInfo, 0, len(resp.Data))
+	for _, phone := range resp.Data {
+		phones = append(phones, ports.WhatsAppPhoneNumberInfo{
+			ID:                     phone.ID,
+			DisplayPhoneNumber:     phone.DisplayPhoneNumber,
+			VerifiedName:           phone.VerifiedName,
+			QualityRating:          domain.WhatsAppQualityRating(phone.QualityRating),
+			MessagingLimitTier:     phone.MessagingLimitTier,
+			Status:                 domain.WhatsAppPhoneNumberStatus(phone.Status),
+			CodeVerificationStatus: domain.WhatsAppCodeVerificationStatus(phone.CodeVerificationStatus),
+		})
+	}
+	return phones, nil
+}
 
 type messageRepoAdapter struct{ *postgres.Store }
 
@@ -111,6 +183,9 @@ func (a providerConfigRepoAdapter) GetByChannel(ctx context.Context, tenantID uu
 }
 func (a providerConfigRepoAdapter) GetByWABAID(ctx context.Context, wabaID string) (*domain.ProviderConfig, error) {
 	return a.Store.GetProviderConfigByWABAID(ctx, wabaID)
+}
+func (a providerConfigRepoAdapter) GetByPhoneNumberID(ctx context.Context, phoneNumberID string) (*domain.ProviderConfig, error) {
+	return a.Store.GetProviderConfigByPhoneNumberID(ctx, phoneNumberID)
 }
 func (a providerConfigRepoAdapter) List(ctx context.Context, tenantID uuid.UUID) ([]domain.ProviderConfig, error) {
 	return a.Store.ListProviderConfigs(ctx, tenantID)

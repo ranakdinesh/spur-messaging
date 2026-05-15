@@ -116,6 +116,7 @@ type ProviderConfigRepository interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.ProviderConfig, error)
 	GetByChannel(ctx context.Context, tenantID uuid.UUID, channel domain.Channel) (*domain.ProviderConfig, error)
 	GetByWABAID(ctx context.Context, wabaID string) (*domain.ProviderConfig, error) // for webhook routing
+	GetByPhoneNumberID(ctx context.Context, phoneNumberID string) (*domain.ProviderConfig, error)
 	List(ctx context.Context, tenantID uuid.UUID) ([]domain.ProviderConfig, error)
 	Update(ctx context.Context, cfg *domain.ProviderConfig) error
 	UpdateIsActive(ctx context.Context, tenantID, id uuid.UUID, isActive bool) error

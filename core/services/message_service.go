@@ -79,6 +79,9 @@ func NewMessageService(
 
 func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports.SendMessageRequest) (*domain.Message, error) {
 	req.IdempotencyKey = strings.TrimSpace(req.IdempotencyKey)
+	if req.Metadata == nil {
+		req.Metadata = make(map[string]string)
+	}
 	if req.IdempotencyKey != "" {
 		existing, err := s.repo.GetByIdempotencyKey(ctx, tenantID, req.IdempotencyKey)
 		if err == nil {
@@ -122,6 +125,7 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 	}
 
 	// 2. Validate contact exists
+	transactionalEmail := req.Channel == domain.ChannelEmail && !isMarketingMessage(req.Metadata)
 	var contact *domain.Contact
 	if req.Channel == domain.ChannelEmail {
 		contact, err = s.contactRepo.GetByEmail(ctx, tenantID, req.Recipient)
@@ -130,24 +134,34 @@ func (s *MessageService) Send(ctx context.Context, tenantID uuid.UUID, req ports
 	}
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil, domain.NewNotFoundError("contact")
+			if transactionalEmail {
+				contact = nil
+			} else {
+				return nil, domain.NewNotFoundError("contact")
+			}
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 
 	// 3. Check opt-in (Section 10A.2)
-	var optedIn bool
-	switch req.Channel {
-	case domain.ChannelWhatsApp:
-		optedIn = contact.OptInWhatsApp == domain.OptInStatusOptedIn
-	case domain.ChannelSMS:
-		optedIn = contact.OptInSMS == domain.OptInStatusOptedIn
-	case domain.ChannelEmail:
-		optedIn = contact.OptInEmail == domain.OptInStatusOptedIn
-	}
+	if !transactionalEmail {
+		if contact == nil {
+			return nil, domain.NewNotFoundError("contact")
+		}
+		var optedIn bool
+		switch req.Channel {
+		case domain.ChannelWhatsApp:
+			optedIn = contact.OptInWhatsApp == domain.OptInStatusOptedIn
+		case domain.ChannelSMS:
+			optedIn = contact.OptInSMS == domain.OptInStatusOptedIn
+		case domain.ChannelEmail:
+			optedIn = contact.OptInEmail == domain.OptInStatusOptedIn
+		}
 
-	if !optedIn {
-		return nil, domain.ErrOptInRequired
+		if !optedIn {
+			return nil, domain.ErrOptInRequired
+		}
 	}
 
 	if s.suppressionSvc != nil {

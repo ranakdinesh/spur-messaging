@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ranakdinesh/spur-messaging/core/domain"
@@ -151,18 +152,51 @@ func (s *Sender) sendWithCfg(ctx context.Context, msg *domain.Message, cfg *doma
 			return errors.New("provider does not support EmailProvider interface")
 		}
 
-		// Construct EmailSendRequest from msg
-		var body string
+		metadata := msg.Metadata
+		if metadata == nil {
+			metadata = map[string]string{}
+		}
+		htmlBody := metadata["html_body"]
+		textBody := metadata["text_body"]
 		if msg.TextBody != nil {
-			body = *msg.TextBody
+			if htmlBody == "" {
+				htmlBody = *msg.TextBody
+			}
+			if textBody == "" && htmlBody == "" {
+				textBody = *msg.TextBody
+			}
+		}
+		headers := map[string]string{}
+		if metadata["list_unsubscribe"] != "" {
+			headers["List-Unsubscribe"] = metadata["list_unsubscribe"]
+		}
+		if metadata["list_unsubscribe_post"] != "" {
+			headers["List-Unsubscribe-Post"] = metadata["list_unsubscribe_post"]
+		}
+		requestMetadata := map[string]string{
+			"message_id": msg.ID.String(),
+			"tenant_id":  msg.TenantID.String(),
+		}
+		if metadata["correlation_id"] != "" {
+			requestMetadata["correlation_id"] = metadata["correlation_id"]
+		}
+		if metadata["callback_ref"] != "" {
+			requestMetadata["callback_ref"] = metadata["callback_ref"]
 		}
 		req := ports.EmailSendRequest{
 			To:          msg.Recipient,
-			Subject:     msg.Metadata["subject"],
-			HTMLBody:    body,
-			TrackOpens:  true,
-			TrackClicks: true,
-			Metadata:    map[string]string{"message_id": msg.ID.String(), "tenant_id": msg.TenantID.String()},
+			CC:          splitCSV(metadata["cc"]),
+			BCC:         splitCSV(metadata["bcc"]),
+			FromEmail:   metadata["from_email"],
+			FromName:    metadata["from_name"],
+			ReplyTo:     metadata["reply_to"],
+			Subject:     metadata["subject"],
+			HTMLBody:    htmlBody,
+			TextBody:    textBody,
+			Headers:     headers,
+			TrackOpens:  metadata["track_opens"] == "true",
+			TrackClicks: metadata["track_clicks"] == "true",
+			Metadata:    requestMetadata,
 		}
 
 		result, err = emailProvider.SendEmail(ctx, cfg, req)
@@ -218,6 +252,21 @@ func (s *Sender) sendWithCfg(ctx context.Context, msg *domain.Message, cfg *doma
 		}
 	}
 	return nil
+}
+
+func splitCSV(value string) []string {
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func billingCategoryForMessage(msg *domain.Message) string {

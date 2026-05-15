@@ -15,6 +15,7 @@ func RegisterRoutes(r chi.Router,
 	billingH *BillingHandler,
 	segmentH *SegmentHandler,
 	provH *ProviderHandler,
+	waOnboardingH *WhatsAppOnboardingHandler,
 	unsubH *UnsubscribeHandler,
 	suppH *SuppressionHandler,
 	analH *AnalyticsHandler) {
@@ -27,6 +28,18 @@ func RegisterRoutes(r chi.Router,
 		r.Put("/providers/{id}", provH.UpdateProvider)     // messaging:providers:write
 		r.Delete("/providers/{id}", provH.DeleteProvider)  // messaging:providers:write
 		r.Post("/providers/{id}/test", provH.TestProvider) // messaging:providers:test
+
+		// WhatsApp Tech Provider onboarding
+		r.Get("/whatsapp/onboarding/config", waOnboardingH.Config)                 // messaging:providers:read
+		r.Post("/whatsapp/onboarding/session", waOnboardingH.CreateSession)        // messaging:providers:write
+		r.Post("/whatsapp/onboarding/callback", waOnboardingH.Callback)            // messaging:providers:write
+		r.Get("/whatsapp/onboarding/sessions/{id}", waOnboardingH.GetSession)      // messaging:providers:read
+		r.Get("/whatsapp/accounts", waOnboardingH.ListAccounts)                    // messaging:providers:read
+		r.Get("/whatsapp/accounts/{id}", waOnboardingH.GetAccount)                 // messaging:providers:read
+		r.Post("/whatsapp/accounts/{id}/sync", waOnboardingH.SyncAccount)          // messaging:providers:write
+		r.Delete("/whatsapp/accounts/{id}", waOnboardingH.DeleteAccount)           // messaging:providers:write
+		r.Get("/whatsapp/phone-numbers", waOnboardingH.ListPhoneNumbers)           // messaging:providers:read
+		r.Post("/whatsapp/phone-numbers/{id}/sync", waOnboardingH.SyncPhoneNumber) // messaging:providers:write
 
 		// Tenant webhooks
 		r.Post("/webhooks", webhookH.CreateWebhook)                                 // messaging:webhooks:write

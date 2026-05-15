@@ -137,6 +137,61 @@ func TestMessageServiceSendStoresSuppressedSMSWithoutEnqueue(t *testing.T) {
 	}
 }
 
+func TestMessageServiceAllowsTransactionalEmailWithoutExistingContact(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	repo := newMessageRepoStub()
+	queue := &messageQueueStub{}
+	svc := newEmailMessageService(repo, queue, tenantID)
+
+	html := "<p>Verify your email</p>"
+	msg, err := svc.Send(ctx, tenantID, ports.SendMessageRequest{
+		Channel:        domain.ChannelEmail,
+		Recipient:      "new.user@example.com",
+		MessageType:    domain.MessageTypeText,
+		Text:           &html,
+		FromEmail:      "noreply@example.com",
+		FromName:       "Citual",
+		Metadata:       map[string]string{"category": "transactional", "subject": "Verify your email"},
+		TrackOpens:     ptrBool(false),
+		TrackClicks:    ptrBool(false),
+		IdempotencyKey: "verify:new.user@example.com",
+	})
+	if err != nil {
+		t.Fatalf("Send returned error: %v", err)
+	}
+	if msg.Status != domain.MessageStatusQueued {
+		t.Fatalf("expected queued transactional email, got %q", msg.Status)
+	}
+	if len(queue.enqueued) != 1 {
+		t.Fatalf("expected transactional email to enqueue, got %d", len(queue.enqueued))
+	}
+}
+
+func TestMessageServiceRequiresContactForMarketingEmail(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	repo := newMessageRepoStub()
+	queue := &messageQueueStub{}
+	svc := newEmailMessageService(repo, queue, tenantID)
+
+	html := "<p>Newsletter</p>"
+	_, err := svc.Send(ctx, tenantID, ports.SendMessageRequest{
+		Channel:     domain.ChannelEmail,
+		Recipient:   "new.user@example.com",
+		MessageType: domain.MessageTypeText,
+		Text:        &html,
+		FromEmail:   "noreply@example.com",
+		Metadata:    map[string]string{"subject": "Newsletter"},
+	})
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for marketing email without contact, got %v", err)
+	}
+	if len(queue.enqueued) != 0 {
+		t.Fatalf("expected no enqueue for rejected marketing email, got %d", len(queue.enqueued))
+	}
+}
+
 func newSMSMessageService(repo *messageRepoStub, queue *messageQueueStub, tenantID uuid.UUID, phone string) *MessageService {
 	return newSMSMessageServiceWithSuppression(repo, queue, tenantID, phone, nil)
 }
@@ -166,6 +221,35 @@ func newSMSMessageServiceWithSuppression(repo *messageRepoStub, queue *messageQu
 		nil,
 		registry,
 		Config{SMSSenderID: "SPUR"},
+	)
+}
+
+func newEmailMessageService(repo *messageRepoStub, queue *messageQueueStub, tenantID uuid.UUID) *MessageService {
+	configRepo := &providerConfigRepoStub{
+		cfg: &domain.ProviderConfig{
+			ID:        uuid.New(),
+			TenantID:  tenantID,
+			Channel:   domain.ChannelEmail,
+			Provider:  "fake_email",
+			IsActive:  true,
+			FromEmail: "noreply@example.com",
+			FromName:  "Citual",
+		},
+	}
+	registry := NewProviderRegistry(configRepo)
+	registry.RegisterWithName("fake_email", fakeProvider{channel: domain.ChannelEmail})
+
+	return NewMessageService(
+		repo,
+		nil,
+		&contactRepoStub{},
+		nil,
+		queue,
+		nil,
+		nil,
+		nil,
+		registry,
+		Config{EmailFromAddress: "noreply@example.com", EmailFromName: "Citual"},
 	)
 }
 
@@ -409,6 +493,9 @@ func (r *providerConfigRepoStub) GetByChannel(_ context.Context, tenantID uuid.U
 func (r *providerConfigRepoStub) GetByWABAID(context.Context, string) (*domain.ProviderConfig, error) {
 	return nil, domain.ErrNotFound
 }
+func (r *providerConfigRepoStub) GetByPhoneNumberID(context.Context, string) (*domain.ProviderConfig, error) {
+	return nil, domain.ErrNotFound
+}
 func (r *providerConfigRepoStub) List(context.Context, uuid.UUID) ([]domain.ProviderConfig, error) {
 	return nil, nil
 }
@@ -532,6 +619,10 @@ func (r *conversationRepoStub) AddConversationNote(_ context.Context, tenantID, 
 
 func ptrTime(t time.Time) *time.Time {
 	return &t
+}
+
+func ptrBool(v bool) *bool {
+	return &v
 }
 
 type suppressionServiceStub struct {

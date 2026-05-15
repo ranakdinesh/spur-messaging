@@ -285,3 +285,46 @@ type MessagingWebhookEndpoint struct {
 	CreatedAt    time.Time          `json:"created_at"`
 	UpdatedAt    time.Time          `json:"updated_at"`
 }
+
+type MessagingWhatsappBusinessAccount struct {
+	ID                         uuid.UUID          `json:"id"`
+	TenantID                   uuid.UUID          `json:"tenant_id"`
+	MetaBusinessID             string             `json:"meta_business_id"`
+	WabaID                     string             `json:"waba_id"`
+	Name                       string             `json:"name"`
+	Currency                   string             `json:"currency"`
+	TimezoneID                 string             `json:"timezone_id"`
+	BusinessVerificationStatus string             `json:"business_verification_status"`
+	OnboardingStatus           string             `json:"onboarding_status"`
+	ProviderConfigID           pgtype.UUID        `json:"provider_config_id"`
+	LastSyncedAt               pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt                  time.Time          `json:"created_at"`
+	UpdatedAt                  time.Time          `json:"updated_at"`
+}
+
+type MessagingWhatsappOnboardingSession struct {
+	ID           uuid.UUID          `json:"id"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
+	State        string             `json:"state"`
+	Status       string             `json:"status"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+}
+
+type MessagingWhatsappPhoneNumber struct {
+	ID                     uuid.UUID          `json:"id"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
+	WabaID                 string             `json:"waba_id"`
+	PhoneNumberID          string             `json:"phone_number_id"`
+	DisplayPhoneNumber     string             `json:"display_phone_number"`
+	VerifiedName           string             `json:"verified_name"`
+	QualityRating          string             `json:"quality_rating"`
+	MessagingLimitTier     string             `json:"messaging_limit_tier"`
+	Status                 string             `json:"status"`
+	CodeVerificationStatus string             `json:"code_verification_status"`
+	LastSyncedAt           pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt              time.Time          `json:"created_at"`
+	UpdatedAt              time.Time          `json:"updated_at"`
+}

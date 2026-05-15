@@ -14,11 +14,22 @@ const (
 	ChannelEmail    Channel = "email"
 )
 
+const (
+	ProviderMetaCloud = "meta_cloud"
+	ProviderMSG91     = "msg91"
+	ProviderTwilio    = "twilio"
+	ProviderSendGrid  = "sendgrid"
+	ProviderMailgun   = "mailgun"
+	ProviderPostmark  = "postmark"
+	ProviderSMTP      = "smtp"
+	ProviderDevEmail  = "dev_email"
+)
+
 type ProviderConfig struct {
 	ID            uuid.UUID
 	TenantID      uuid.UUID
 	Channel       Channel
-	Provider      string // "meta_cloud", "msg91", "twilio", "sendgrid", "mailgun", "postmark"
+	Provider      string // "meta_cloud", "msg91", "twilio", "sendgrid", "mailgun", "postmark", "smtp", "dev_email"
 	Credentials   []byte // AES-256-GCM encrypted JSON
 	WebhookSecret string
 	IsActive      bool
@@ -38,8 +49,9 @@ type ProviderConfig struct {
 
 // WhatsAppCredentials is the decrypted form of Credentials for WhatsApp
 type WhatsAppCredentials struct {
-	AccessToken string `json:"access_token"`
-	AppSecret   string `json:"app_secret"` // for webhook signature verification
+	AccessToken            string `json:"access_token"`
+	AppSecret              string `json:"app_secret"`                         // for webhook signature verification
+	WebhookSignatureBypass bool   `json:"webhook_signature_bypass,omitempty"` // development only; never enabled by default
 }
 
 // SMSCredentials for MSG91 or Twilio
@@ -59,4 +71,11 @@ type EmailCredentials struct {
 	Domain       string `json:"domain,omitempty"`        // Mailgun: sending domain
 	ServerToken  string `json:"server_token,omitempty"`  // Postmark: server token
 	WebhookToken string `json:"webhook_token,omitempty"` // For webhook signature verification
+
+	SMTPHost     string `json:"smtp_host,omitempty"`
+	SMTPPort     int    `json:"smtp_port,omitempty"`
+	SMTPUsername string `json:"smtp_username,omitempty"`
+	SMTPPassword string `json:"smtp_password,omitempty"`
+	SMTPAuth     string `json:"smtp_auth,omitempty"`     // plain, login, none
+	SMTPTLSMode  string `json:"smtp_tls_mode,omitempty"` // none, starttls, tls
 }
