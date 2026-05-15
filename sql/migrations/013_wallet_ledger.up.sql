@@ -42,8 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_rate_cards_lookup
 ALTER TABLE messaging.wallet_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.rate_cards ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS tenant_isolation_wallet_ledger ON messaging.wallet_ledger;
 CREATE POLICY tenant_isolation_wallet_ledger ON messaging.wallet_ledger
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 
+DROP POLICY IF EXISTS tenant_isolation_rate_cards ON messaging.rate_cards;
 CREATE POLICY tenant_isolation_rate_cards ON messaging.rate_cards
     USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id')::uuid);

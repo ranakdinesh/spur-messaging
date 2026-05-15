@@ -52,7 +52,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_deliveries_event_endpoint
 ALTER TABLE messaging.webhook_endpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messaging.webhook_deliveries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS tenant_isolation_webhook_endpoints ON messaging.webhook_endpoints;
 CREATE POLICY tenant_isolation_webhook_endpoints ON messaging.webhook_endpoints
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
+
+DROP POLICY IF EXISTS tenant_isolation_webhook_deliveries ON messaging.webhook_deliveries;
 CREATE POLICY tenant_isolation_webhook_deliveries ON messaging.webhook_deliveries
     USING (tenant_id = current_setting('app.tenant_id')::uuid);

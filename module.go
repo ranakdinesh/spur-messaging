@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/ranakdinesh/spur-messaging/core/ports"
 	"github.com/ranakdinesh/spur-messaging/core/services"
 	"github.com/ranakdinesh/spur-messaging/pkg/authctx"
+	sqlmigrations "github.com/ranakdinesh/spur-messaging/sql/migrations"
 	"github.com/ranakdinesh/spur-messaging/worker"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -139,6 +142,9 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	// 1. Run migrations
 	log := &zerologAdapter{zl: opt.Log}
 	log.Info("Running messaging module migrations...")
+	if err := runMigrations(ctx, opt.DB); err != nil {
+		return nil, fmt.Errorf("messaging migrations: %w", err)
+	}
 
 	// 2. Create repository implementations
 	store := postgres.NewStore(opt.DB)
@@ -304,6 +310,68 @@ func New(ctx context.Context, opt Options) (*Module, error) {
 	}()
 
 	return m, nil
+}
+
+func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
+	if db == nil {
+		return fmt.Errorf("database pool is required")
+	}
+	if _, err := db.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS messaging`); err != nil {
+		return fmt.Errorf("create messaging schema: %w", err)
+	}
+	if _, err := db.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS messaging.schema_migrations (
+			version TEXT PRIMARY KEY,
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`); err != nil {
+		return fmt.Errorf("create schema migrations table: %w", err)
+	}
+
+	files, err := fs.Glob(sqlmigrations.FS, "*.up.sql")
+	if err != nil {
+		return fmt.Errorf("list migrations: %w", err)
+	}
+	sort.Strings(files)
+
+	for _, file := range files {
+		var applied bool
+		if err := db.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM messaging.schema_migrations WHERE version = $1)`,
+			file,
+		).Scan(&applied); err != nil {
+			return fmt.Errorf("check migration %s: %w", file, err)
+		}
+		if applied {
+			continue
+		}
+
+		sqlBytes, err := sqlmigrations.FS.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", file, err)
+		}
+
+		tx, err := db.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin migration %s: %w", file, err)
+		}
+		if _, err := tx.Exec(ctx, string(sqlBytes)); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("apply migration %s: %w", file, err)
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO messaging.schema_migrations (version) VALUES ($1)`,
+			file,
+		); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("record migration %s: %w", file, err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit migration %s: %w", file, err)
+		}
+	}
+
+	return nil
 }
 
 func defaultEmailProviderConfig(cfg Config) *domain.ProviderConfig {
